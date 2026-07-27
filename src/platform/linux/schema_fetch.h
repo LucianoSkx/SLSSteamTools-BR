@@ -24,6 +24,11 @@ void DrainOnNetThread();
 // write the .bin + stats template. Returns true if a matching reply was consumed.
 bool HandleInbound819(const uint8_t* data, uint32_t len);
 
+// Queue a schema fetch for one app if it has no schema on disk yet. Used for
+// apps discovered after the proactive sweep already ran. No-op when schema
+// fetching is disabled, the CM connection isn't up, or the app was tried before.
+void EnsureSchemaForApp(uint32_t appId);
+
 // Signal shutdown to abort pending HTTP work and stop sending.
 void Shutdown();
 

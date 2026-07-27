@@ -539,8 +539,25 @@ static void EnsureInitialized() {
             LOG("[Stats] Stats sync disabled -- skipping StatsStore/StatsHandlers/poller init");
         }
 
+        // Seed apps discovered after init (a game added mid-session). SeedApps
+        // above and the schema sweep both run once over the set as it stood at
+        // init, so without this a newly added game gets no stats blob and no
+        // achievement schema until the next Steam restart.
+        CloudIntercept::SetNamespaceAppCallback([](uint32_t appId) {
+            if (g_shuttingDown.load(std::memory_order_acquire)) return;
+            std::thread([appId] {
+                if (g_shuttingDown.load(std::memory_order_acquire)) return;
+                if (MetadataSync::syncAchievements.load(std::memory_order_relaxed) ||
+                    MetadataSync::syncPlaytime.load(std::memory_order_relaxed)) {
+                    LOG("[Stats] Seeding late-discovered namespace app %u", appId);
+                    StatsStore::SeedApps({appId});
+                }
+                SchemaFetch::EnsureSchemaForApp(appId);
+            }).detach();
+        });
+
         g_initialized.store(true, std::memory_order_release);
-        
+
         LOG("[Linux] Storage initialized: root=%s, accountId=%u, namespaceApps=%zu",
             storageRoot.c_str(), CloudIntercept::GetAccountId(),
             CloudIntercept::GetNamespaceApps().size());

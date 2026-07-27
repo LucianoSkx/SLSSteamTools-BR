@@ -653,6 +653,13 @@ static void MaybeScheduleSweep() {
     });
 }
 
+// Late discovery: RequestSchemaForApp already gates on the feature toggle, the
+// CM handle, a prior attempt and an existing on-disk schema, so this is just
+// the public door onto it.
+void EnsureSchemaForApp(uint32_t appId) {
+    RequestSchemaForApp(appId);
+}
+
 // Shutdown.
 void Shutdown() {
     g_shuttingDown.store(true, std::memory_order_release);
