@@ -52,8 +52,24 @@ static void DebugLog(const char* msg)
         std::string path = XdgConfigHome() + "/CloudRedirect/cr_debug.log";
         g_debugFd = open(path.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
     }
-    if (g_debugFd >= 0)
-        write(g_debugFd, msg, strlen(msg));
+    if (g_debugFd < 0)
+        return;
+
+    // Every `steam` process shares this file, so an OnUnload from one interleaves
+    // with an OnLoad from another and blocks cannot be attributed without
+    // guessing. Stamp the pid, and emit each line with a single write so
+    // concurrent processes cannot interleave mid-line.
+    const char* body = msg;
+    if (strncmp(msg, "[CR] ", 5) == 0)
+        body = msg + 5;
+
+    char buf[512];
+    int n = snprintf(buf, sizeof(buf), "[CR][%d] %s", (int)getpid(), body);
+    if (n <= 0)
+        return;
+    if (n > (int)sizeof(buf) - 1)
+        n = (int)sizeof(buf) - 1;
+    write(g_debugFd, buf, (size_t)n);
 }
 
 extern "C" void CR_SetCrashContext(const char* hook, const char* method, uint32_t appId)
@@ -179,8 +195,10 @@ static void DoInit()
         }
     }
 
+    DebugLog("[CR] DoInit: finding transport vtable\n");
     size_t steamSize = 0;
-    uintptr_t steamBase = VtableHook::FindSteamclient(steamSize);
+    uintptr_t steamBase = 0;
+    void** vtable = VtableHook::ResolveTransportVtable(steamBase, steamSize);
     if (!steamBase)
     {
         DebugLog("[CR] DoInit: FAILED - steamclient.so not found\n");
@@ -190,10 +208,16 @@ static void DoInit()
     }
     Log::Info("steamclient.so base=%p size=0x%zx", (void*)steamBase, steamSize);
 
-    DebugLog("[CR] DoInit: finding transport vtable\n");
-    void** vtable = VtableHook::FindTransportVtable(steamBase, steamSize);
     if (!vtable)
     {
+        // A stop request means the process is exiting mid-scan, not that the
+        // client is incompatible -- don't alarm the user about a shutdown.
+        if (LinuxInitStop::ProcessStop().Requested())
+        {
+            DebugLog("[CR] DoInit: aborted - process exiting during vtable scan\n");
+            Log::Info("Init aborted: process exiting during vtable scan");
+            return;
+        }
         DebugLog("[CR] DoInit: FAILED - transport vtable not found\n");
         Log::Error("Init failed: transport vtable not found");
         Notify("Incompatible Steam client - hooks disabled", true);

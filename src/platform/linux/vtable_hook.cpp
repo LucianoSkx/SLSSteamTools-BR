@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cinttypes>
 #include <mutex>
+#include <vector>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -16,10 +17,28 @@ static constexpr const char RTTI_NAME[] = "30CClientUnifiedServiceTransport";
 
 // Steam's loader hides libraries from dl_iterate_phdr; parse /proc/self/maps.
 
-static struct { uintptr_t start; uintptr_t end; } g_readableRanges[64];
-static int g_readableCount = 0;
-static struct { uintptr_t start; uintptr_t end; } g_writableRanges[64];
-static int g_writableCount = 0;
+// Mapping snapshot of the steamclient.so scan window.
+//
+// These were fixed 64-entry arrays, filled in ascending address order and
+// silently truncated once full. steamclient.so's mapping is fragmented while
+// the client starts, and past 64 readable ranges in the scan window the
+// *highest* addresses were the ones dropped -- which is exactly where
+// .data.rel.ro lives (vaddr ~0x2e57ae0 of a ~0x2f38000 module), while the RTTI
+// name strings sit far lower in .rodata (~0xb38020). The scan therefore found
+// the type string and then failed to find its typeinfo, and every such log
+// reported "64 readable ranges" because the counter could not exceed the cap.
+// Growable storage removes the cap: no range in the window is ever dropped.
+struct MemRange { uintptr_t start; uintptr_t end; };
+static std::vector<MemRange> g_readableRanges;
+static std::vector<MemRange> g_writableRanges;
+
+// Module bounds from the last maps snapshot, for RefreshRanges().
+static uintptr_t g_scanBase = 0;
+static uintptr_t g_scanLabeledMax = 0;
+
+// Set while ResolveTransportVtable() still has attempts left, so a miss on a
+// non-final pass logs as a warning instead of a hard error.
+static bool g_scanRetryPending = false;
 
 // Probe readability via write() to /dev/null. Used before g_readableRanges is populated.
 static bool CanReadMemory(const void* addr, size_t len);
@@ -47,6 +66,65 @@ static uintptr_t FindElfBaseBackward(uintptr_t hint)
     return 0;
 }
 
+// Snapshot readable/writable mappings within +/-16 MiB of the module span.
+// .data.rel.ro may live in anonymous mappings inside the span, and the
+// adjacency margin tolerates a labeled span that has not finished growing.
+static void CaptureRanges(uintptr_t base, uintptr_t labeledMax)
+{
+    g_readableRanges.clear();
+    g_writableRanges.clear();
+    g_readableRanges.reserve(256);
+    g_writableRanges.reserve(64);
+
+    const uintptr_t adjacency = 16ULL * 1024 * 1024;
+    const uintptr_t scanLo = (base > adjacency) ? base - adjacency : 0;
+    const uintptr_t scanHi = labeledMax + adjacency;
+
+    FILE* f = fopen("/proc/self/maps", "r");
+    if (!f)
+    {
+        Log::Error("cannot open /proc/self/maps for range capture");
+        return;
+    }
+
+    char line[512];
+    while (fgets(line, sizeof(line), f))
+    {
+        uintptr_t start_addr, end_addr;
+        char perms[5] = {};
+        if (sscanf(line, "%" SCNxPTR "-%" SCNxPTR " %4s", &start_addr, &end_addr, perms) < 3)
+            continue;
+        if (end_addr <= scanLo || start_addr >= scanHi) continue;
+        if (perms[0] != 'r') continue;
+
+        g_readableRanges.push_back({start_addr, end_addr});
+        if (perms[1] == 'w')
+            g_writableRanges.push_back({start_addr, end_addr});
+    }
+    fclose(f);
+
+    g_scanBase = base;
+    g_scanLabeledMax = labeledMax;
+}
+
+// Ranges that actually intersect the module span -- the only ones the scans
+// consider. Logged so a shortfall here is visible instead of silent.
+static size_t CountInModule(const std::vector<MemRange>& ranges,
+                            uintptr_t base, uintptr_t end)
+{
+    size_t n = 0;
+    for (const MemRange& r : ranges)
+        if (r.end > base && r.start < end) n++;
+    return n;
+}
+
+bool VtableHook::RefreshRanges()
+{
+    if (g_scanBase == 0) return false;
+    CaptureRanges(g_scanBase, g_scanLabeledMax);
+    return !g_readableRanges.empty();
+}
+
 uintptr_t VtableHook::FindSteamclient(size_t& outSize)
 {
     FILE* f = fopen("/proc/self/maps", "r");
@@ -58,8 +136,6 @@ uintptr_t VtableHook::FindSteamclient(size_t& outSize)
 
     uintptr_t labeledMin = 0;
     uintptr_t labeledMax = 0;
-    g_readableCount = 0;
-    g_writableCount = 0;
     char line[512];
 
     while (fgets(line, sizeof(line), f))
@@ -97,43 +173,19 @@ uintptr_t VtableHook::FindSteamclient(size_t& outSize)
                   (void*)labeledMin, (void*)base, labeledMin - base);
     }
 
-    // Capture readable mappings within +/-16 MiB of labeled span.
-    // .data.rel.ro may be in anonymous mappings outside the labeled range.
-    // Slot-pointer validation still uses the tight labeled span.
-    const uintptr_t adjacency = 16ULL * 1024 * 1024;
-    const uintptr_t scanLo = (base > adjacency) ? base - adjacency : 0;
-    const uintptr_t scanHi = labeledMax + adjacency;
-
-    rewind(f);
-    while (fgets(line, sizeof(line), f))
-    {
-        uintptr_t start_addr, end_addr;
-        char perms[5] = {};
-        if (sscanf(line, "%" SCNxPTR "-%" SCNxPTR " %4s", &start_addr, &end_addr, perms) < 3)
-            continue;
-
-        if (end_addr <= scanLo || start_addr >= scanHi) continue;
-
-        if (perms[0] == 'r' && g_readableCount < 64)
-        {
-            g_readableRanges[g_readableCount].start = start_addr;
-            g_readableRanges[g_readableCount].end = end_addr;
-            g_readableCount++;
-        }
-        if (perms[0] == 'r' && perms[1] == 'w' && g_writableCount < 64)
-        {
-            g_writableRanges[g_writableCount].start = start_addr;
-            g_writableRanges[g_writableCount].end = end_addr;
-            g_writableCount++;
-        }
-    }
     fclose(f);
 
+    // Slot-pointer validation still uses the tight labeled span.
+    CaptureRanges(base, labeledMax);
+
     outSize = labeledMax - base;
-    Log::Info("steamclient.so base=%p end=%p size=0x%zx (%d readable, %d writable ranges)", 
-              (void*)base, (void*)labeledMax, outSize, g_readableCount, g_writableCount);
-    Log::Debug("labeledMin=%p labeledMax=%p scanWindow=[%p, %p]",
-               (void*)labeledMin, (void*)labeledMax, (void*)scanLo, (void*)scanHi);
+    Log::Info("steamclient.so base=%p end=%p size=0x%zx (%zu readable, %zu writable ranges)",
+              (void*)base, (void*)labeledMax, outSize,
+              g_readableRanges.size(), g_writableRanges.size());
+    Log::Debug("labeledMin=%p labeledMax=%p inModuleReadable=%zu inModuleWritable=%zu",
+               (void*)labeledMin, (void*)labeledMax,
+               CountInModule(g_readableRanges, base, labeledMax),
+               CountInModule(g_writableRanges, base, labeledMax));
     return base;
 }
 
@@ -154,20 +206,27 @@ static bool CanReadMemory(const void* addr, size_t len)
 static const uint8_t* FindBytes(const void* needle, size_t needleLen,
                                 uintptr_t steamBase, size_t steamSize)
 {
-    for (int r = 0; r < g_readableCount; r++)
+    const uint8_t firstByte = *static_cast<const uint8_t*>(needle);
+
+    for (const MemRange& range : g_readableRanges)
     {
-        if (g_readableRanges[r].end <= steamBase ||
-            g_readableRanges[r].start >= steamBase + steamSize)
+        if (range.end <= steamBase || range.start >= steamBase + steamSize)
             continue;
-        size_t rangeSize = g_readableRanges[r].end - g_readableRanges[r].start;
+        size_t rangeSize = range.end - range.start;
         if (rangeSize < needleLen) continue;
 
-        const uint8_t* rStart = reinterpret_cast<const uint8_t*>(g_readableRanges[r].start);
-        const uint8_t* rEnd = reinterpret_cast<const uint8_t*>(g_readableRanges[r].end);
-        for (const uint8_t* p = rStart; p <= rEnd - needleLen; p++)
+        // memchr on the first byte, then confirm: the module is ~47 MiB and this
+        // runs on every scan attempt, so a byte-at-a-time memcmp is wasteful.
+        const uint8_t* p = reinterpret_cast<const uint8_t*>(range.start);
+        const uint8_t* last = reinterpret_cast<const uint8_t*>(range.end) - needleLen;
+        while (p <= last)
         {
-            if (memcmp(p, needle, needleLen) == 0)
-                return p;
+            const uint8_t* hit = static_cast<const uint8_t*>(
+                memchr(p, firstByte, static_cast<size_t>(last - p) + 1));
+            if (!hit) break;
+            if (memcmp(hit, needle, needleLen) == 0)
+                return hit;
+            p = hit + 1;
         }
     }
     return nullptr;
@@ -183,16 +242,15 @@ static const uintptr_t* FindPointerValue(uintptr_t primary, uintptr_t fallback,
         uintptr_t target = (pass == 0) ? primary : fallback;
         if (pass == 1 && primary == fallback) break;  // same value, no second pass
 
-        for (int r = 0; r < g_readableCount; r++)
+        for (const MemRange& range : g_readableRanges)
         {
-            if (g_readableRanges[r].end <= steamBase ||
-                g_readableRanges[r].start >= steamBase + steamSize)
+            if (range.end <= steamBase || range.start >= steamBase + steamSize)
                 continue;
 
             const uintptr_t* scanStart = reinterpret_cast<const uintptr_t*>(
-                (g_readableRanges[r].start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
+                (range.start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
             const uintptr_t* scanEnd = reinterpret_cast<const uintptr_t*>(
-                g_readableRanges[r].end & ~(sizeof(uintptr_t) - 1));
+                range.end & ~(sizeof(uintptr_t) - 1));
 
             for (const uintptr_t* p = scanStart; p < scanEnd; p++)
             {
@@ -224,9 +282,13 @@ void** VtableHook::FindTransportVtable(uintptr_t steamBase, size_t steamSize)
                                                   steamBase, steamSize);
     if (!nameField)
     {
-        Log::Error("typeinfo for CClientUnifiedServiceTransport not found");
-        Log::Debug("  searched for 0x%zx (relocated) and 0x%zx (unrelocated) across %d ranges",
-                   (size_t)rttiStrAddr, (size_t)rttiStrVaddr, g_readableCount);
+        if (g_scanRetryPending)
+            Log::Warn("typeinfo for CClientUnifiedServiceTransport not found, will retry");
+        else
+            Log::Error("typeinfo for CClientUnifiedServiceTransport not found");
+        Log::Debug("  searched for 0x%zx (relocated) and 0x%zx (unrelocated) across %zu ranges (%zu in module)",
+                   (size_t)rttiStrAddr, (size_t)rttiStrVaddr, g_readableRanges.size(),
+                   CountInModule(g_readableRanges, steamBase, steamBase + steamSize));
         return nullptr;
     }
     const uintptr_t* typeinfo = nameField - 1;  // typeinfo starts one slot before name
@@ -264,23 +326,23 @@ void** VtableHook::FindTransportVtable(uintptr_t steamBase, size_t steamSize)
 
     // Find vtable: scan for [offset_to_top=0, typeinfo_ptr] header
     void** vtableFuncs = nullptr;
-    for (int r = 0; r < g_readableCount && !vtableFuncs; r++)
+    for (size_t r = 0; r < g_readableRanges.size() && !vtableFuncs; r++)
     {
-        if (g_readableRanges[r].end <= steamBase ||
-            g_readableRanges[r].start >= steamBase + steamSize)
+        const MemRange& range = g_readableRanges[r];
+        if (range.end <= steamBase || range.start >= steamBase + steamSize)
             continue;
 
         const uintptr_t* scanStart = reinterpret_cast<const uintptr_t*>(
-            (g_readableRanges[r].start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
+            (range.start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
         const uintptr_t* scanEnd = reinterpret_cast<const uintptr_t*>(
-            g_readableRanges[r].end & ~(sizeof(uintptr_t) - 1));
+            range.end & ~(sizeof(uintptr_t) - 1));
 
         for (const uintptr_t* p = scanStart; p + 1 < scanEnd; p++)
         {
             if (*p == 0 && *(p + 1) == typeinfoAddr)
             {
                 vtableFuncs = reinterpret_cast<void**>(const_cast<uintptr_t*>(p + 2));
-                Log::Debug("Found vtable at %p (header at %p) in range %d",
+                Log::Debug("Found vtable at %p (header at %p) in range %zu",
                            vtableFuncs, p, r);
                 break;
             }
@@ -289,7 +351,10 @@ void** VtableHook::FindTransportVtable(uintptr_t steamBase, size_t steamSize)
 
     if (!vtableFuncs)
     {
-        Log::Error("vtable for CClientUnifiedServiceTransport not found (typeinfo=%p)", typeinfo);
+        if (g_scanRetryPending)
+            Log::Warn("vtable for CClientUnifiedServiceTransport not found (typeinfo=%p), will retry", typeinfo);
+        else
+            Log::Error("vtable for CClientUnifiedServiceTransport not found (typeinfo=%p)", typeinfo);
         return nullptr;
     }
 
@@ -314,6 +379,54 @@ void** VtableHook::FindTransportVtable(uintptr_t steamBase, size_t steamSize)
     Log::Debug("  slot5=%p  slot7=%p  slot8=%p",
                vtableFuncs[5], vtableFuncs[7], vtableFuncs[8]);
     return vtableFuncs;
+}
+
+void** VtableHook::ResolveTransportVtable(uintptr_t& outBase, size_t& outSize,
+                                         int maxAttempts, int retryDelayMs)
+{
+    if (maxAttempts < 1) maxAttempts = 1;
+    outBase = 0;
+    outSize = 0;
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        g_scanRetryPending = (attempt < maxAttempts);
+
+        // Re-resolved every attempt, not just re-snapshotted: while the client
+        // starts, the labeled span itself can still be growing, and a span that
+        // stops short of .data.rel.ro excludes the typeinfo from every scan.
+        size_t size = 0;
+        uintptr_t base = FindSteamclient(size);
+        if (base)
+        {
+            outBase = base;
+            outSize = size;
+
+            void** vtable = FindTransportVtable(base, size);
+            if (vtable)
+            {
+                g_scanRetryPending = false;
+                if (attempt > 1)
+                    Log::Info("transport vtable resolved on attempt %d/%d", attempt, maxAttempts);
+                return vtable;
+            }
+        }
+
+        if (attempt == maxAttempts) break;
+
+        Log::Info("transport vtable scan attempt %d/%d incomplete, re-reading /proc/self/maps in %dms",
+                  attempt, maxAttempts, retryDelayMs);
+        if (LinuxInitStop::ProcessStop().WaitFor(std::chrono::milliseconds(retryDelayMs)))
+        {
+            g_scanRetryPending = false;
+            Log::Info("transport vtable scan stopped early on attempt %d (process exiting)", attempt);
+            return nullptr;
+        }
+    }
+
+    g_scanRetryPending = false;
+    Log::Error("transport vtable not resolved after %d attempts", maxAttempts);
+    return nullptr;
 }
 
 static bool MakeWritable(void* addr, size_t len)
@@ -466,6 +579,13 @@ void** VtableHook::FindRemoteStorageVtable(uintptr_t steamBase, size_t steamSize
     // Find typeinfo (relocations already waited on by Transport)
     const uintptr_t* nameField = FindPointerValue(rttiStrAddr, rttiStrVaddr,
                                                   steamBase, steamSize);
+    if (!nameField && RefreshRanges())
+    {
+        // Same failure class as the transport scan: the snapshot can predate the
+        // mapping that holds .data.rel.ro. The RTTI string address stays valid.
+        Log::Warn("typeinfo for CUserRemoteStorage not found, re-reading /proc/self/maps and retrying");
+        nameField = FindPointerValue(rttiStrAddr, rttiStrVaddr, steamBase, steamSize);
+    }
     if (!nameField)
     {
         Log::Error("typeinfo for CUserRemoteStorage not found");
@@ -477,16 +597,16 @@ void** VtableHook::FindRemoteStorageVtable(uintptr_t steamBase, size_t steamSize
 
     // Find vtable: [offset_to_top=0, typeinfo_ptr]
     void** vtableFuncs = nullptr;
-    for (int r = 0; r < g_readableCount && !vtableFuncs; r++)
+    for (size_t r = 0; r < g_readableRanges.size() && !vtableFuncs; r++)
     {
-        if (g_readableRanges[r].end <= steamBase ||
-            g_readableRanges[r].start >= steamBase + steamSize)
+        const MemRange& range = g_readableRanges[r];
+        if (range.end <= steamBase || range.start >= steamBase + steamSize)
             continue;
 
         const uintptr_t* scanStart = reinterpret_cast<const uintptr_t*>(
-            (g_readableRanges[r].start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
+            (range.start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
         const uintptr_t* scanEnd = reinterpret_cast<const uintptr_t*>(
-            g_readableRanges[r].end & ~(sizeof(uintptr_t) - 1));
+            range.end & ~(sizeof(uintptr_t) - 1));
 
         for (const uintptr_t* p = scanStart; p + 1 < scanEnd; p++)
         {
@@ -579,16 +699,15 @@ void** VtableHook::FindVtableByRTTIName(const char* mangledName,
     }
 
     // 4) vtable: scan for [offset_to_top=0, typeinfo_ptr] header.
-    for (int r = 0; r < g_readableCount; r++)
+    for (const MemRange& range : g_readableRanges)
     {
-        if (g_readableRanges[r].end <= steamBase ||
-            g_readableRanges[r].start >= steamBase + steamSize)
+        if (range.end <= steamBase || range.start >= steamBase + steamSize)
             continue;
 
         const uintptr_t* scanStart = reinterpret_cast<const uintptr_t*>(
-            (g_readableRanges[r].start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
+            (range.start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
         const uintptr_t* scanEnd = reinterpret_cast<const uintptr_t*>(
-            g_readableRanges[r].end & ~(sizeof(uintptr_t) - 1));
+            range.end & ~(sizeof(uintptr_t) - 1));
 
         for (const uintptr_t* p = scanStart; p + 1 < scanEnd; p++)
         {
@@ -614,16 +733,15 @@ void* VtableHook::FindGlobalWithVtable(void* vtablePtr,
     uintptr_t target = reinterpret_cast<uintptr_t>(vtablePtr);
 
     // Default instances live in writable .data/.bss. Scan writable ranges.
-    for (int r = 0; r < g_writableCount; r++)
+    for (const MemRange& range : g_writableRanges)
     {
-        if (g_writableRanges[r].end <= steamBase ||
-            g_writableRanges[r].start >= steamBase + steamSize)
+        if (range.end <= steamBase || range.start >= steamBase + steamSize)
             continue;
 
         const uintptr_t* scanStart = reinterpret_cast<const uintptr_t*>(
-            (g_writableRanges[r].start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
+            (range.start + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
         const uintptr_t* scanEnd = reinterpret_cast<const uintptr_t*>(
-            g_writableRanges[r].end & ~(sizeof(uintptr_t) - 1));
+            range.end & ~(sizeof(uintptr_t) - 1));
 
         for (const uintptr_t* p = scanStart; p + 2 < scanEnd; p++)
         {
