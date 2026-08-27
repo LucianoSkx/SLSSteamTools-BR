@@ -21,6 +21,7 @@
 #include "json.h"
 #include "log.h"
 #include "xdg.h"
+#include "late_discovery_queue.h"
 
 #include <cstring>
 #include <climits>
@@ -63,6 +64,52 @@ static std::thread g_seedThread;
 static std::mutex g_seedExitMtx;
 static std::condition_variable g_seedExitCv;
 static std::atomic<bool> g_seedExited{false};
+
+// Apps discovered after init are serialized through one worker. The previous
+// thread-per-app callback could create hundreds of threads during a bulk
+// stplug-in copy, exhaust pthread resources, and terminate Steam when the
+// std::thread constructor threw. This queue changes only scheduling: each app
+// still runs the same stats seed followed by the same schema request.
+static LinuxLateDiscovery::Queue g_lateDiscoveryQueue;
+static std::thread g_lateDiscoveryThread;
+static std::mutex g_lateDiscoveryExitMtx;
+static std::condition_variable g_lateDiscoveryExitCv;
+static std::atomic<bool> g_lateDiscoveryExited{false};
+static std::atomic<bool> g_lateDiscoveryStarted{false};
+
+static void ProcessLateDiscovery(uint32_t appId) {
+    if (g_shuttingDown.load(std::memory_order_acquire)) return;
+    if (MetadataSync::syncAchievements.load(std::memory_order_relaxed) ||
+        MetadataSync::syncPlaytime.load(std::memory_order_relaxed)) {
+        LOG("[Stats] Seeding late-discovered namespace app %u", appId);
+        StatsStore::SeedApps({appId});
+    }
+    SchemaFetch::EnsureSchemaForApp(appId);
+}
+
+static void LateDiscoveryWorker() noexcept {
+    LinuxLateDiscovery::Drain(
+        g_lateDiscoveryQueue,
+        [](uint32_t appId) { ProcessLateDiscovery(appId); },
+        [](uint32_t appId) {
+            LOG("[Linux] late-discovery processing failed for app %u; continuing", appId);
+        });
+    g_lateDiscoveryExited.store(true, std::memory_order_release);
+    g_lateDiscoveryExitCv.notify_all();
+}
+
+static bool StartLateDiscoveryWorker() noexcept {
+    try {
+        g_lateDiscoveryThread = std::thread(LateDiscoveryWorker);
+        g_lateDiscoveryStarted.store(true, std::memory_order_release);
+        return true;
+    } catch (const std::exception& e) {
+        LOG("[Linux] unable to start late-discovery worker: %s", e.what());
+    } catch (...) {
+        LOG("[Linux] unable to start late-discovery worker");
+    }
+    return false;
+}
 
 struct HookGuard {
     HookGuard() { g_hookRefCount.fetch_add(1, std::memory_order_acquire); }
@@ -542,19 +589,20 @@ static void EnsureInitialized() {
         // Seed apps discovered after init (a game added mid-session). SeedApps
         // above and the schema sweep both run once over the set as it stood at
         // init, so without this a newly added game gets no stats blob and no
-        // achievement schema until the next Steam restart.
-        CloudIntercept::SetNamespaceAppCallback([](uint32_t appId) {
-            if (g_shuttingDown.load(std::memory_order_acquire)) return;
-            std::thread([appId] {
+        // achievement schema until the next Steam restart. A single tracked
+        // worker preserves that work without creating one thread per app.
+        if (StartLateDiscoveryWorker()) {
+            CloudIntercept::SetNamespaceAppCallback([](uint32_t appId) {
                 if (g_shuttingDown.load(std::memory_order_acquire)) return;
-                if (MetadataSync::syncAchievements.load(std::memory_order_relaxed) ||
-                    MetadataSync::syncPlaytime.load(std::memory_order_relaxed)) {
-                    LOG("[Stats] Seeding late-discovered namespace app %u", appId);
-                    StatsStore::SeedApps({appId});
+                if (!g_lateDiscoveryQueue.Enqueue(appId) &&
+                    !g_shuttingDown.load(std::memory_order_acquire)) {
+                    LOG("[Linux] late-discovered app %u was not queued (duplicate or unavailable)",
+                        appId);
                 }
-                SchemaFetch::EnsureSchemaForApp(appId);
-            }).detach();
-        });
+            });
+        } else {
+            LOG("[Linux] late-discovery metadata refresh deferred until restart");
+        }
 
         g_initialized.store(true, std::memory_order_release);
 
@@ -937,6 +985,8 @@ extern "C" bool hook_IsCloudEnabledForApp(void* pThis, unsigned int appId)
 
 void CloudHooks::BeginShutdown() {
     g_shuttingDown.store(true, std::memory_order_release);
+    CloudIntercept::SetNamespaceAppCallback({});
+    g_lateDiscoveryQueue.Stop();
     SchemaFetch::Shutdown();
     RecvPktHook::Remove();
     GamesPlayedHook::Remove();
@@ -973,6 +1023,24 @@ void CloudHooks::BeginShutdown() {
         } else {
             LOG("[CloudHooks] seed wedged in network call -- detaching");
             g_seedThread.detach();
+        }
+    }
+
+    // The late-discovery worker normally exits immediately when its queue is
+    // stopped. If its one active item is wedged in provider I/O, retain the
+    // existing bounded-shutdown policy used by the seed and poller threads.
+    if (g_lateDiscoveryStarted.load(std::memory_order_acquire) &&
+        g_lateDiscoveryThread.joinable()) {
+        {
+            std::unique_lock<std::mutex> lk(g_lateDiscoveryExitMtx);
+            g_lateDiscoveryExitCv.wait_for(lk, std::chrono::seconds(5),
+                [] { return g_lateDiscoveryExited.load(std::memory_order_acquire); });
+        }
+        if (g_lateDiscoveryExited.load(std::memory_order_acquire)) {
+            g_lateDiscoveryThread.join();
+        } else {
+            LOG("[CloudHooks] late-discovery worker wedged in network call -- detaching");
+            g_lateDiscoveryThread.detach();
         }
     }
 }

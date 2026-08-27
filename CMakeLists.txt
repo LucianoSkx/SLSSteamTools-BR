@@ -237,6 +237,13 @@ if(NOT WIN32)
     target_include_directories(linux_init_stop_tests PRIVATE src/platform/linux)
     target_link_libraries(linux_init_stop_tests PRIVATE pthread)
     add_test(NAME linux_init_stop_tests COMMAND linux_init_stop_tests)
+
+    add_executable(linux_late_discovery_queue_tests
+        test/linux_late_discovery_queue_tests.cpp
+    )
+    target_include_directories(linux_late_discovery_queue_tests PRIVATE src/platform/linux)
+    target_link_libraries(linux_late_discovery_queue_tests PRIVATE pthread)
+    add_test(NAME linux_late_discovery_queue_tests COMMAND linux_late_discovery_queue_tests)
 endif()
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
