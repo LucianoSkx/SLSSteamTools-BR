@@ -7,6 +7,23 @@ crash containment on the Linux 32-bit hook.
 
 The result is a 32-bit `cloud_redirect.so`, loaded into Steam via `LD_PRELOAD`.
 
+## Linux achievement scope
+
+Namespace membership alone is not a license decision. Stats, schema fetching
+and playtime delivery require confirmation from the matching SLSsteam build
+through `slsteam_local_stats_epoch_v1`. Real licenses, unknown state and queries
+for other users pass through to Steam. Install both updated libraries together;
+without the bridge, local stats handling is disabled safely.
+
+Private backups and legacy migration remain intact; they are not applied to
+official games or replayed to a Steam profile. Cloud save routing is unchanged.
+After switching accounts within the same Steam process, restart Steam fully to
+reinitialize the account-scoped store; until then stats remain on the official
+path. This deliberately avoids mixing two accounts' archived progress.
+
+Run `ctest --test-dir build --output-on-failure` after the portable build for the
+Linux scope, missing-bridge, migration and existing runtime regressions.
+
 ## Credits
 
 Upstream:

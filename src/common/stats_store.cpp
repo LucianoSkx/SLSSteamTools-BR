@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <unordered_set>
 #include <condition_variable>
+#include <memory>
 
 namespace fs = std::filesystem;
 
@@ -73,6 +74,15 @@ static AccountIdProvider g_accountIdProvider;
 static SchemaMissingCallback g_schemaMissingCb;
 // True for apps we manage; reconcile seeds their playtime from localconfig.vdf.
 static NamespacePredicate g_isNamespaceApp;
+static std::shared_ptr<NamespacePredicate> g_isEligible;
+static bool IsEligible(uint32_t appId) {
+    const auto pred = std::atomic_load(&g_isEligible);
+#ifdef __linux__
+    return pred && (*pred)(appId);
+#else
+    return !pred || (*pred)(appId);
+#endif
+}
 
 // Seed completion signal: set true once SeedApps finishes loading cloud blob + stats.
 static std::atomic<bool> g_seedDone{false};
@@ -171,6 +181,10 @@ void SetSchemaMissingCallback(SchemaMissingCallback cb) {
 void SetNamespacePredicate(NamespacePredicate pred) {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_isNamespaceApp = std::move(pred);
+}
+
+void SetEligibilityPredicate(NamespacePredicate pred) {
+    std::atomic_store(&g_isEligible, std::make_shared<NamespacePredicate>(std::move(pred)));
 }
 
 // ── Native UserGameStats (BKV) reader ────────────────────────────────────
@@ -460,7 +474,7 @@ static void ReconcileLocalConfig(const std::string& cloudRoot, const std::string
             // We only manage namespace apps. Real owned games keep their native,
             // server-tracked playtime and are never reconciled or synced.
             bool isNs = g_isNamespaceApp && g_isNamespaceApp(appId);
-            if (!isNs) return true;
+            if (!isNs || !IsEligible(appId)) return true;
             LOG("[Stats] Reconcile: considering app %u (ns=1)", appId);
 
             std::string appIdStr = std::to_string(appId);
@@ -1288,6 +1302,9 @@ bool LoadAppStats(uint32_t appId, AppStats& out) {
 // locally only; the cloud is written on session end, when playtime accrues.
 static void WriteAppStats(uint32_t appId, const AppStats& stats, bool pushCloud,
                           bool bypassDiskMerge) {
+    // Private archive persistence is NOT delivery to Steam. Keep migrations
+    // durable even while license evidence is unavailable; capture/delivery
+    // gates prevent this history from overriding an official game's stats.
     if (g_diskAccountId == 0) return;   // no account yet; skip disk I/O
     std::string path = StatsPath(appId);
 
@@ -1435,6 +1452,7 @@ static bool ReimportNativeStatsLocked(uint32_t appId, AppStats& stats) {
 }
 
 void CaptureNativeUnlocks(uint32_t appId) {
+    if (!IsEligible(appId)) return;
     bool changed = false;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
@@ -1727,11 +1745,14 @@ void SeedApps(const std::vector<uint32_t>& appIds) {
     // reads each app's entry from the cached blob (no further network).
     RefreshCloudBlobCache();
     // Recover stats stranded under the old per-app cloud layout.
-    MigrateLegacyBlobs(appIds);
+    std::vector<uint32_t> eligible;
+    for (uint32_t appId : appIds)
+        if (appId && IsEligible(appId)) eligible.push_back(appId);
+    MigrateLegacyBlobs(eligible);
     // Recover playtime from the very first 2.2.x per-app .bin format (local+cloud).
-    MigrateLegacyPlaytimeBins(appIds);
-    for (uint32_t appId : appIds) {
-        if (appId == 0) continue;
+    MigrateLegacyPlaytimeBins(eligible);
+    for (uint32_t appId : eligible) {
+        if (!IsEligible(appId)) continue;
         GetOrCreate(appId);  // merges cached cloud blob + imports native + loads local
     }
     // SeedApps also materializes imported native stats; flush the account blob
@@ -1797,7 +1818,7 @@ void RetryNativeImportsAfterLogin() {
             appId = appId * 10 + (uint32_t)(c - '0');
         }
         if (!numeric || appId == 0) continue;
-        if (!g_isNamespaceApp(appId)) continue;
+        if (!g_isNamespaceApp(appId) || !IsEligible(appId)) continue;
         ++considered;
         // Sample emptiness before/after the import under one lock hold so only an
         // empty->populated transition counts as a genuine new import.
@@ -1820,7 +1841,7 @@ std::vector<uint32_t> RefreshFromCloud(const std::vector<uint32_t>& appIds) {
     // One network read for the whole account, then iterate from the cache.
     if (!RefreshCloudBlobCache()) return changed;
     for (uint32_t appId : appIds) {
-        if (appId == 0) continue;
+        if (appId == 0 || !IsEligible(appId)) continue;
 
         std::lock_guard<std::mutex> lock(g_mutex);
         if (g_resetApps.count(appId)) continue;
@@ -1991,6 +2012,7 @@ std::vector<uint8_t> GetSchema(uint32_t appId) {
 static bool EndSessionLocked(uint32_t appId);
 
 void StartSession(uint32_t appId) {
+    if (!IsEligible(appId)) return;
     std::lock_guard<std::mutex> lock(g_mutex);
     // Flush any open session first: native Steam resumes the existing per-app
     // timer rather than re-arming, so a duplicate GamesPlayed can't drop minutes.
@@ -2006,6 +2028,7 @@ void StartSession(uint32_t appId) {
 // g_activeSessions. Caller holds g_mutex. Returns false if no session was open.
 // Shared by EndSession and the re-entrant-StartSession flush.
 static bool EndSessionLocked(uint32_t appId) {
+    if (!IsEligible(appId)) { g_activeSessions.erase(appId); return false; }
     auto it = g_activeSessions.find(appId);
     if (it == g_activeSessions.end()) return false;
 
@@ -2092,6 +2115,7 @@ std::vector<uint32_t> GetTrackedApps() {
     std::vector<uint32_t> out;
     out.reserve(g_cache.size());
     for (const auto& [appId, stats] : g_cache) {
+        if (!IsEligible(appId)) continue;
         if (stats.playtime.minutesForever > 0 || stats.playtime.lastPlayedTime > 0)
             out.push_back(appId);
     }

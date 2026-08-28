@@ -1,4 +1,5 @@
 #include "stats_hooks.h"
+#include "stats_eligibility.h"
 #include "stats_handlers.h"
 #include "metadata_sync.h"
 #include "cloud_intercept.h"
@@ -29,11 +30,11 @@ bool TryHandleGetUserStats(const char* methodName, void* request, void* response
 
     // appid is field 2 in CPlayer_GetUserStats_Request.
     uint32_t appId = 0;
-    if (auto* f = PB::FindField(reqFields, 2)) appId = (uint32_t)f->varintVal;
-    if (appId == 0 || !CloudIntercept::IsNamespaceApp(appId)) return false;
+    const auto epoch = StatsEligibility::RequestEpoch(reqFields, false, appId);
+    if (!epoch) return false;
 
     auto res = StatsHandlers::HandleGetUserStats(appId, reqFields);
-    if (res.body.Size() == 0) {
+    if (res.body.Size() == 0 || StatsEligibility::Epoch(appId, true) != epoch) {
         LOG("[Stats] GetUserStats app=%u: store returned empty -> passthrough", appId);
         return false;
     }

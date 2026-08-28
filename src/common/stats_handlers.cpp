@@ -32,6 +32,7 @@ void Init() {
 
 // Player.GetUserStats#1 handler. Wire: req{appid(2),crc(4)} -> resp{crc(2),schema(3),stats(4)}.
 CloudIntercept::RpcResult HandleGetUserStats(uint32_t appId, const std::vector<PB::Field>& reqBody) {
+    if (!IsNamespaceApp(appId)) return CloudIntercept::RpcResult(PB::Writer{});
     uint32_t clientCrc = 0;
     auto* crcField = PB::FindField(reqBody, 4); // crc_stats
     if (crcField) clientCrc = (uint32_t)crcField->varintVal;
@@ -119,6 +120,7 @@ CloudIntercept::RpcResult HandleGetLastPlayedTimes(const std::vector<PB::Field>&
     size_t emitted = 0;
 
     for (uint32_t appId : StatsStore::GetTrackedApps()) {
+        if (!IsNamespaceApp(appId)) continue;
         StatsStore::PlaytimeData pt = StatsStore::GetPlaytime(appId);
 
         // min_last_played is the client's watermark: skip games it already has
@@ -142,6 +144,7 @@ CloudIntercept::RpcResult HandleGetLastPlayedTimes(const std::vector<PB::Field>&
 PB::Writer BuildLastPlayedNotificationBody(const std::vector<uint32_t>& appIds) {
     PB::Writer body;
     for (uint32_t appId : appIds) {
+        if (!IsNamespaceApp(appId)) continue;
         StatsStore::PlaytimeData pt = StatsStore::GetPlaytime(appId);
         if (pt.minutesForever == 0 && pt.lastPlayedTime == 0) continue;
         WriteGame(body, appId, pt);

@@ -1,4 +1,5 @@
 #include "live_playtime.h"
+#include "stats_eligibility.h"
 #include "log.h"
 
 #include <atomic>
@@ -369,6 +370,8 @@ bool Ready() {
 
 void Apply(const std::vector<uint8_t>& respBody) {
     if (respBody.empty() || !Ready()) return;
+    const auto eligible = StatsEligibility::FilterLastPlayed(respBody);
+    if (eligible.empty()) return;
     int pUser = g_pUser.load(std::memory_order_acquire);
 
     // CProtoBufMsg<CPlayer_GetLastPlayedTimes_Response> on the stack (sub_182F8A0):
@@ -393,7 +396,7 @@ void Apply(const std::vector<uint8_t>& respBody) {
         return;
     }
 
-    if (!g_parseFromArray((void*)(uintptr_t)inner, respBody.data(), (int)respBody.size())) {
+    if (!g_parseFromArray((void*)(uintptr_t)inner, eligible.data(), (int)eligible.size())) {
         LOG("[Stats] LivePlaytime::Apply: ParseFromArray failed (%zu bytes)", respBody.size());
         g_msgDtor((int)(uintptr_t)wrapper);
         return;

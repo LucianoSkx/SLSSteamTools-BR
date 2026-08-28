@@ -2,6 +2,7 @@
 #include "metadata_sync.h"
 #include "stats_handlers.h"
 #include "cloud_intercept.h"
+#include "stats_eligibility.h"
 #include "steam_kv_injector.h"
 #include "protobuf.h"
 #include "log.h"
@@ -191,6 +192,8 @@ private:
 struct Pending {
     uint64_t jobIdTarget;
     uint32_t appId;
+    uint32_t account;
+    uint64_t epoch;
     void*    cmInterface;
     std::vector<uint8_t> body;
 };
@@ -242,9 +245,10 @@ int ObserveOutbound(uint32_t emsg, void* msgObj, void* cmInterface) {
     const uint8_t* bbytes = g_serializeBody(bodyObj, &blen);
     if (!bbytes || blen == 0) return 0;
     auto fields = PB::Parse(bbytes, blen);
-    auto* f1 = PB::FindField(fields, 1);
-    uint32_t appId = f1 ? (uint32_t)(f1->varintVal & 0xFFFFFF) : 0;
-    if (appId == 0 || !CloudIntercept::IsNamespaceApp(appId)) return 0;
+    uint32_t appId = 0;
+    const auto epoch = StatsEligibility::RequestEpoch(fields, true, appId);
+    const auto account = CloudIntercept::GetAccountId();
+    if (!epoch || !jobId || jobId == UINT64_MAX) return 0;
 
     // Block the 818 only when we can serve a reply; otherwise the jobid hangs and
     // stalls Steam's shared stats worker for all apps.
@@ -254,7 +258,9 @@ int ObserveOutbound(uint32_t emsg, void* msgObj, void* cmInterface) {
     reqBody.WriteVarint(3, (uint64_t)(int64_t)-1);// schema_local_version = -1
     auto reqBytes = reqBody.Data();
     auto built = StatsHandlers::HandleLegacyGetUserStats(reqBytes.data(), reqBytes.size(), 0);
-    if (!built.has_value() || built->empty()) {
+    if (!built.has_value() || built->empty() ||
+        StatsEligibility::Epoch(appId, true) != epoch ||
+        CloudIntercept::GetAccountId() != account) {
         LOG("[Stats] Observed legacy GetUserStats(818) app=%u jobid=%llu -> nothing to serve, "
             "passing through to Valve (avoids hung job)", appId, (unsigned long long)jobId);
         return 0;  // let Valve answer; its 819 also carries the schema
@@ -262,7 +268,8 @@ int ObserveOutbound(uint32_t emsg, void* msgObj, void* cmInterface) {
 
     {
         std::lock_guard<std::mutex> lock(g_queueMutex);
-        g_queue.push(Pending{jobId, appId, cmInterface, std::move(*built)});
+        if (g_queue.size() >= 4096) return 0;
+        g_queue.push(Pending{jobId, appId, account, epoch, cmInterface, std::move(*built)});
     }
     LOG("[Stats] Observed legacy GetUserStats(818) app=%u jobid=%llu -> queued 819 (blocking send)",
         appId, (unsigned long long)jobId);
@@ -301,12 +308,22 @@ static std::vector<uint8_t> BuildWirePacket(uint64_t jobIdTarget,
 struct RawPkt { uint32_t pad0; const uint8_t* data; uint32_t size; uint32_t refcount; uint32_t copyBuf; uint32_t pad[3]; };
 
 static void RouteOne(const Pending& p) {
+    if (CloudIntercept::GetAccountId() != p.account) return;
     if (p.body.empty()) {
         LOG("[Stats] 819 for app=%u: empty body (unexpected) -- skipped", p.appId);
         return;
     }
 
-    auto wire = BuildWirePacket(p.jobIdTarget, p.body);
+    auto body = p.body;
+    if (StatsEligibility::Epoch(p.appId, true) != p.epoch) {
+        // The request was already blocked: release its job with a failure,
+        // never stale local progress or success-with-zero-unlocks.
+        PB::Writer failure;
+        failure.WriteFixed64(1, p.appId);
+        failure.WriteVarint(2, 2); // EResultFail
+        body = failure.Data();
+    }
+    auto wire = BuildWirePacket(p.jobIdTarget, body);
 
     CallGuard guard;
     if (sigsetjmp(g_jmp, 1) != 0) {

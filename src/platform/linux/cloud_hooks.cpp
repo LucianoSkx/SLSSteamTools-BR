@@ -1,6 +1,7 @@
 #include "cloud_hooks.h"
 #include "cloud_intercept.h"
 #include "stats_hooks.h"
+#include "stats_eligibility.h"
 #include "gamesplayed_hook.h"
 #include "live_playtime.h"
 #include "achievement_inject.h"
@@ -532,9 +533,11 @@ static void EnsureInitialized() {
         // Track playtime/stats for namespace (lua) apps only -- real owned games
         // must never have their playtime recorded or synced.
         StatsHandlers::SetNamespacePredicate(
-            [](uint32_t appId) { return CloudIntercept::IsNamespaceApp(appId); });
+            [](uint32_t appId) { return StatsEligibility::IsLocalApp(appId); });
         StatsStore::SetNamespacePredicate(
             [](uint32_t appId) { return CloudIntercept::IsNamespaceApp(appId); });
+        StatsStore::SetEligibilityPredicate(
+            [](uint32_t appId) { return StatsEligibility::IsLocalApp(appId); });
         StatsStore::SetAccountIdProvider(
             []() -> uint32_t { return CloudIntercept::GetAccountId(); });
         StatsStore::Init(cloudRedirectRoot, CloudIntercept::GetSteamPath());

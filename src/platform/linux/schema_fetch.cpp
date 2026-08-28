@@ -1,4 +1,5 @@
 #include "schema_fetch.h"
+#include "stats_eligibility.h"
 #include "cloud_intercept.h"
 #include "metadata_sync.h"
 #include "protobuf.h"
@@ -18,6 +19,7 @@
 #include <queue>
 #include <thread>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -87,11 +89,12 @@ static LinuxRuntimeSafety::PublishedCcmOffsets g_ccmOffsets;
 static std::atomic<void*>    g_cmInterface{nullptr};
 
 // Schema fetch state.
-struct SchemaSendItem { uint32_t appId; uint64_t owner; };
+struct SchemaSendItem { uint32_t appId; uint64_t owner; uint64_t epoch; uint32_t account; };
 static std::mutex            g_sendMutex;
 static std::queue<SchemaSendItem> g_sendQueue;
 static std::mutex            g_fetchMutex;
-static std::unordered_set<uint32_t> g_fetchAttempted;
+static std::unordered_map<uint32_t, uint64_t> g_fetchAttempted;
+static std::unordered_map<uint64_t, SchemaSendItem> g_pendingJobs;
 static std::atomic<bool>     g_shuttingDown{false};
 static std::atomic<bool>     g_sweepScheduled{false};
 static std::thread           g_sweepThread;
@@ -387,7 +390,18 @@ static bool SendSchemaRequest(uint32_t appId, uint64_t ownerId,
         return false;
     }
 
+    const auto epoch = StatsEligibility::Epoch(appId, true);
+    if (!epoch) return false;
+    {
+        std::lock_guard<std::mutex> lock(g_fetchMutex);
+        if (g_pendingJobs.size() >= 4096) return false;
+        g_pendingJobs[jobId] = {appId, ownerId, epoch, CloudIntercept::GetAccountId()};
+    }
     uint8_t sent = g_cmSend(cmInterface, msg);
+    if (!sent) {
+        std::lock_guard<std::mutex> lock(g_fetchMutex);
+        g_pendingJobs.erase(jobId);
+    }
     LOG("[SchemaFetch] SendSchemaRequest app=%u owner=%llu jobid=0x%llX -> %s",
         appId, (unsigned long long)ownerId,
         (unsigned long long)jobId, sent ? "sent" : "FAILED");
@@ -397,13 +411,16 @@ static bool SendSchemaRequest(uint32_t appId, uint64_t ownerId,
 // Request + queue logic.
 static void RequestSchemaForApp(uint32_t appId) {
     if (!MetadataSync::SchemaFetchEnabled()) return;
-    if (appId == 0) return;
+    const auto epoch = StatsEligibility::Epoch(appId);
+    const auto account = CloudIntercept::GetAccountId();
+    if (!epoch) return;
     if (g_shuttingDown.load(std::memory_order_acquire)) return;
     if (g_connHandle.load(std::memory_order_relaxed) == 0) return;
 
     {
         std::lock_guard<std::mutex> lock(g_fetchMutex);
-        if (!g_fetchAttempted.insert(appId).second) return;
+        if (g_fetchAttempted[appId] == epoch) return;
+        g_fetchAttempted[appId] = epoch;
     }
 
     std::string steamPath = CloudIntercept::GetSteamPath();
@@ -441,7 +458,7 @@ static void RequestSchemaForApp(uint32_t appId) {
     {
         std::lock_guard<std::mutex> lock(g_sendMutex);
         for (uint64_t owner : verified)
-            g_sendQueue.push({appId, owner});
+            g_sendQueue.push({appId, owner, epoch, account});
     }
     LOG("[SchemaFetch] app %u: queued %zu request(s) via %s",
         appId, verified.size(), usingFallback ? "fallback" : "review-owner discovery");
@@ -495,7 +512,9 @@ void DrainOnNetThread() {
             item = g_sendQueue.front();
             g_sendQueue.pop();
         }
-        SendSchemaRequest(item.appId, item.owner, cmInterface, conn);
+        if (item.account == CloudIntercept::GetAccountId() &&
+            StatsEligibility::Epoch(item.appId, true) == item.epoch)
+            SendSchemaRequest(item.appId, item.owner, cmInterface, conn);
     }
     t_draining = false;
 }
@@ -534,17 +553,26 @@ bool HandleInbound819(const uint8_t* data, uint32_t len) {
 
     auto bodyFields = PB::Parse(bodyData, bodyLen);
 
-    // Correlate by game_id (appid), since the framework assigns its own jobid.
+    // Only consume our exact job. A native/friend query for the same app must
+    // still reach Steam, even if a schema sweep has previously visited it.
     const PB::Field* gameIdF = PB::FindField(bodyFields, RESP_GAME_ID);
     if (!gameIdF) return false;
     uint32_t appId = (uint32_t)(gameIdF->varintVal & 0xFFFFFF);
     if (appId == 0) return false;
 
+    auto headerFields = PB::Parse(data + 8, headerLen);
+    const auto* target = PB::FindField(headerFields, 11);
+    if (!target || target->wireType != PB::Fixed64) return false;
+    SchemaSendItem requested{};
     {
         std::lock_guard<std::mutex> lock(g_fetchMutex);
-        if (g_fetchAttempted.find(appId) == g_fetchAttempted.end())
-            return false;   // not an app we asked about
+        const auto found = g_pendingJobs.find(target->varintVal);
+        if (found == g_pendingJobs.end() || found->second.appId != appId) return false;
+        requested = found->second;
+        g_pendingJobs.erase(found);
     }
+    if (requested.account != CloudIntercept::GetAccountId() ||
+        StatsEligibility::Epoch(appId, true) != requested.epoch) return true;
 
     int32_t eresult = 2;
     if (auto* er = PB::FindField(bodyFields, RESP_ERESULT)) eresult = (int32_t)er->varintVal;
