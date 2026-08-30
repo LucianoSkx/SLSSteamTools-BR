@@ -104,6 +104,9 @@ void SetSchemaMissingCallback(SchemaMissingCallback cb);
 // for managed apps before any stats JSON exists.
 using NamespacePredicate = std::function<bool(uint32_t appId)>;
 void SetNamespacePredicate(NamespacePredicate pred);
+// Delivery/write eligibility is separate from archive membership: losing a
+// license decision must NOT erase previously backed-up cloud history.
+void SetEligibilityPredicate(NamespacePredicate pred);
 
 // Seed apps at startup (cloud blob + native UserGameStats + local JSON) so
 // GetLastPlayedTimes has data before launch. Requires a logged-in accountId.

@@ -119,6 +119,7 @@ else()
         src/platform/linux/cloud_hooks.cpp
         src/platform/linux/cloud_intercept.cpp
         src/platform/linux/stats_hooks.cpp
+        src/platform/linux/stats_eligibility.cpp
         src/platform/linux/gamesplayed_hook.cpp
         src/platform/linux/live_playtime.cpp
         src/platform/linux/http_transport_linux.cpp
@@ -233,6 +234,45 @@ endif()
 # ── Tests ───────────────────────────────────────────────────────────────
 
 enable_testing()
+
+if(NOT WIN32)
+    foreach(target linux_stats_scope_tests linux_stats_no_bridge_tests)
+        add_executable(${target} test/linux_stats_scope_tests.cpp
+            src/platform/linux/stats_hooks.cpp src/platform/linux/stats_eligibility.cpp
+            src/common/protobuf.cpp src/common/metadata_sync.cpp src/platform/linux/log.cpp)
+        target_include_directories(${target} PRIVATE src/common src/platform/linux)
+        target_link_libraries(${target} PRIVATE dl pthread)
+        target_link_options(${target} PRIVATE -rdynamic)
+        add_test(NAME ${target} COMMAND ${target})
+    endforeach()
+    target_compile_definitions(linux_stats_scope_tests PRIVATE STATS_TEST_WITH_BRIDGE)
+    add_executable(linux_stats_archive_tests test/linux_stats_archive_tests.cpp
+        src/common/stats_store.cpp src/common/json.cpp src/common/vdf.cpp
+        src/common/metadata_sync.cpp src/platform/linux/log.cpp src/platform/linux/file_util.cpp
+        src/platform/linux/platform_linux.cpp)
+    target_include_directories(linux_stats_archive_tests PRIVATE src/common src/platform/linux)
+    target_link_libraries(linux_stats_archive_tests PRIVATE pthread dl)
+    add_test(NAME linux_stats_archive_tests COMMAND linux_stats_archive_tests)
+    add_executable(linux_lua_discovery_tests
+        test/linux_lua_discovery_tests.cpp
+    )
+    target_include_directories(linux_lua_discovery_tests PRIVATE src/platform/linux)
+    add_test(NAME linux_lua_discovery_tests COMMAND linux_lua_discovery_tests)
+
+    add_executable(linux_init_stop_tests
+        test/linux_init_stop_tests.cpp
+    )
+    target_include_directories(linux_init_stop_tests PRIVATE src/platform/linux)
+    target_link_libraries(linux_init_stop_tests PRIVATE pthread)
+    add_test(NAME linux_init_stop_tests COMMAND linux_init_stop_tests)
+
+    add_executable(linux_late_discovery_queue_tests
+        test/linux_late_discovery_queue_tests.cpp
+    )
+    target_include_directories(linux_late_discovery_queue_tests PRIVATE src/platform/linux)
+    target_link_libraries(linux_late_discovery_queue_tests PRIVATE pthread)
+    add_test(NAME linux_late_discovery_queue_tests COMMAND linux_late_discovery_queue_tests)
+endif()
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
     add_compile_definitions(CR_RELEASE_VERSION="${CR_RELEASE_VERSION}")

@@ -25,10 +25,23 @@ namespace VtableHook
     // Returns base address, sets size. Returns 0 on failure.
     uintptr_t FindSteamclient(size_t& outSize);
 
+    // Re-snapshot the mapping ranges for the module bounds resolved by the last
+    // FindSteamclient() call. Returns false if no module is resolved yet.
+    bool RefreshRanges();
+
     // Locate CClientUnifiedServiceTransport vtable via RTTI scan.
     // steamBase/steamSize from FindSteamclient().
     // Returns pointer to function pointer array (slot 0), or nullptr.
     void** FindTransportVtable(uintptr_t steamBase, size_t steamSize);
+
+    // Resolve the transport vtable, re-running FindSteamclient() between
+    // attempts. Both the module bounds and the fragmentation of its mapping
+    // change while the client starts, so a single pass can miss .data.rel.ro.
+    // Cancels early when the process is exiting. Sets outBase/outSize to the
+    // last resolved module bounds even when the vtable is not found, so callers
+    // can tell "steamclient absent" from "vtable unresolved".
+    void** ResolveTransportVtable(uintptr_t& outBase, size_t& outSize,
+                                  int maxAttempts = 12, int retryDelayMs = 250);
 
     // Locate CUserRemoteStorage vtable via RTTI scan.
     void** FindRemoteStorageVtable(uintptr_t steamBase, size_t steamSize);

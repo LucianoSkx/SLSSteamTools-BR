@@ -12,6 +12,7 @@ const char* CR_GetVersion() { return CR_VERSION_STRING; }
 #include "cloud_intercept.h"
 #include "cloud_storage.h"
 #include "http_server.h"
+#include "init_stop.h"
 #include "legacy_metadata_cleanup.h"
 #include "log.h"
 #include "rpc_handlers.h"
@@ -51,8 +52,24 @@ static void DebugLog(const char* msg)
         std::string path = XdgConfigHome() + "/CloudRedirect/cr_debug.log";
         g_debugFd = open(path.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
     }
-    if (g_debugFd >= 0)
-        write(g_debugFd, msg, strlen(msg));
+    if (g_debugFd < 0)
+        return;
+
+    // Every `steam` process shares this file, so an OnUnload from one interleaves
+    // with an OnLoad from another and blocks cannot be attributed without
+    // guessing. Stamp the pid, and emit each line with a single write so
+    // concurrent processes cannot interleave mid-line.
+    const char* body = msg;
+    if (strncmp(msg, "[CR] ", 5) == 0)
+        body = msg + 5;
+
+    char buf[512];
+    int n = snprintf(buf, sizeof(buf), "[CR][%d] %s", (int)getpid(), body);
+    if (n <= 0)
+        return;
+    if (n > (int)sizeof(buf) - 1)
+        n = (int)sizeof(buf) - 1;
+    write(g_debugFd, buf, (size_t)n);
 }
 
 extern "C" void CR_SetCrashContext(const char* hook, const char* method, uint32_t appId)
@@ -178,8 +195,10 @@ static void DoInit()
         }
     }
 
+    DebugLog("[CR] DoInit: finding transport vtable\n");
     size_t steamSize = 0;
-    uintptr_t steamBase = VtableHook::FindSteamclient(steamSize);
+    uintptr_t steamBase = 0;
+    void** vtable = VtableHook::ResolveTransportVtable(steamBase, steamSize);
     if (!steamBase)
     {
         DebugLog("[CR] DoInit: FAILED - steamclient.so not found\n");
@@ -189,10 +208,16 @@ static void DoInit()
     }
     Log::Info("steamclient.so base=%p size=0x%zx", (void*)steamBase, steamSize);
 
-    DebugLog("[CR] DoInit: finding transport vtable\n");
-    void** vtable = VtableHook::FindTransportVtable(steamBase, steamSize);
     if (!vtable)
     {
+        // A stop request means the process is exiting mid-scan, not that the
+        // client is incompatible -- don't alarm the user about a shutdown.
+        if (LinuxInitStop::ProcessStop().Requested())
+        {
+            DebugLog("[CR] DoInit: aborted - process exiting during vtable scan\n");
+            Log::Info("Init aborted: process exiting during vtable scan");
+            return;
+        }
         DebugLog("[CR] DoInit: FAILED - transport vtable not found\n");
         Log::Error("Init failed: transport vtable not found");
         Notify("Incompatible Steam client - hooks disabled", true);
@@ -258,7 +283,10 @@ static void DoInit()
     g_initialized.store(true, std::memory_order_release);
     DebugLog("[CR] DoInit: SUCCESS\n");
     Log::Info("CloudRedirect initialized successfully (all hooks active)");
-    Notify("Loaded successfully");
+    // Suppress the "Loaded successfully" desktop popup. The host stack already
+    // shows its own load notification on every Steam start, so a second popup
+    // here is redundant noise. The critical/error Notify() calls elsewhere are
+    // kept so genuine init failures still surface to the user.
 }
 
 
@@ -536,12 +564,32 @@ static bool SteamclientMapped()
 
 static void* DeferredInitThread(void*)
 {
-    // Poll for steamclient.so -- under LD_PRELOAD we load before Steam has
-    // mapped steamclient, so a fixed delay is insufficient.
+    // Poll for steamclient.so. Under LD_PRELOAD we load before Steam has mapped
+    // steamclient, so a fixed short delay is insufficient. Upstream uses a fixed
+    // 10s window, which is too short on distros where steamclient.so maps late
+    // (e.g. Arch/CachyOS mapped it >10s after start in testing) -- there the hook
+    // would time out and never attach. Poll with a generous bound instead so the
+    // single LD_PRELOAD load path works universally, only initialising once
+    // steamclient is present.
+    //
+    // The sleep between probes runs on the stop signal so a process that exits
+    // before steamclient appears (bootstrapper/updater, -shutdown, handover)
+    // cancels the remaining window instead of holding OnUnload's join open.
     DebugLog("[CR] DeferredInit: waiting for steamclient.so\n");
-    for (int i = 0; i < 20; i++) {  // up to 10 seconds
-        if (SteamclientMapped()) break;
-        usleep(500000);
+    const auto outcome = LinuxInitStop::PollUntilReady(
+        LinuxInitStop::ProcessStop(), 240, std::chrono::milliseconds(500),
+        SteamclientMapped);  // 240 x 500ms = up to 120 seconds
+    if (outcome == LinuxInitStop::PollOutcome::Stopped) {
+        DebugLog("[CR] DeferredInit: stopped early, process is exiting before steamclient.so mapped\n");
+        Log::Info("Init stopped early: process exiting before steamclient.so mapped");
+        g_initThreadDone.store(true, std::memory_order_release);
+        return nullptr;
+    }
+    if (outcome != LinuxInitStop::PollOutcome::Ready) {
+        DebugLog("[CR] DeferredInit: steamclient.so never mapped within window, aborting\n");
+        Log::Error("Init aborted: steamclient.so not mapped within wait window");
+        g_initThreadDone.store(true, std::memory_order_release);
+        return nullptr;
     }
     DebugLog("[CR] DeferredInit: starting\n");
 
@@ -606,9 +654,12 @@ static void OnUnload()
 {
     DebugLog("[CR] OnUnload: shutting down\n");
 
-    // Wait for the init thread to finish so we don't unmap code it's executing.
-    // The thread runs for ~2s (usleep) + init time, so this is bounded.
     if (g_hookAttempted.load(std::memory_order_acquire)) {
+        // Tell the init thread's wait loops to give up before joining it: the
+        // attach poll alone runs up to 120s, so an unsignalled join would keep
+        // this process alive for the rest of that window. The join itself is
+        // kept so we never unmap code the thread is still executing.
+        LinuxInitStop::ProcessStop().Request();
         if (!g_initThreadDone.load(std::memory_order_acquire)) {
             DebugLog("[CR] OnUnload: waiting for init thread\n");
             pthread_join(g_initThread, nullptr);
