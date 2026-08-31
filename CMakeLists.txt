@@ -236,6 +236,23 @@ endif()
 enable_testing()
 
 if(NOT WIN32)
+    add_test(NAME cli_packaging_test
+        COMMAND bash ${CMAKE_SOURCE_DIR}/test/cli_packaging_test.sh)
+    add_test(NAME cli_folder_provider_test
+        COMMAND bash ${CMAKE_SOURCE_DIR}/test/cli_folder_provider_test.sh
+                     $<TARGET_FILE:cloud_redirect_cli>)
+    add_executable(provider_config_tests test/provider_config_tests.cpp)
+    target_include_directories(provider_config_tests PRIVATE src/common)
+    target_link_libraries(provider_config_tests PRIVATE cloud_redirect)
+    target_compile_definitions(provider_config_tests PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
+    if(LINUX_32BIT)
+        target_compile_options(provider_config_tests PRIVATE -m32)
+        target_link_options(provider_config_tests PRIVATE -m32)
+    endif()
+    add_test(NAME provider_config_tests COMMAND provider_config_tests)
+endif()
+
+if(NOT WIN32)
     foreach(target linux_stats_scope_tests linux_stats_no_bridge_tests)
         add_executable(${target} test/linux_stats_scope_tests.cpp
             src/platform/linux/stats_hooks.cpp src/platform/linux/stats_eligibility.cpp

@@ -74,6 +74,33 @@ public:
         return folders;
     }
 
+    virtual bool ListSubfoldersChecked(const std::string& prefix,
+                                       std::vector<std::string>& outFolders,
+                                       bool* outComplete = nullptr) {
+        std::vector<FileInfo> files;
+        bool complete = false;
+        if (!ListChecked(prefix, files, &complete)) {
+            outFolders.clear();
+            if (outComplete) *outComplete = false;
+            return false;
+        }
+        outFolders.clear();
+        for (const auto& file : files) {
+            if (file.path.size() <= prefix.size() ||
+                file.path.compare(0, prefix.size(), prefix) != 0) continue;
+            const std::string rest = file.path.substr(prefix.size());
+            const size_t slash = rest.find('/');
+            if (slash == std::string::npos) continue;
+            const std::string folder = rest.substr(0, slash);
+            if (!folder.empty() &&
+                std::find(outFolders.begin(), outFolders.end(), folder) == outFolders.end())
+                outFolders.push_back(folder);
+        }
+        std::sort(outFolders.begin(), outFolders.end());
+        if (outComplete) *outComplete = complete;
+        return complete;
+    }
+
     virtual bool ListChecked(const std::string& prefix, std::vector<FileInfo>& outFiles,
                              bool* outComplete = nullptr) {
         if (outComplete) *outComplete = false;
