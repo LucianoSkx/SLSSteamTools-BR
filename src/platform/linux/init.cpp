@@ -39,7 +39,7 @@ static std::atomic<bool> g_initialized{false};
 static std::atomic<bool> g_hookAttempted{false};
 static std::atomic<bool> g_logInitialized{false};
 static pthread_t g_initThread{};
-static std::atomic<bool> g_initThreadDone{false};
+static std::atomic<bool> g_initThreadCreated{false};
 
 // Raw diagnostic logging (survives even if C++ runtime is broken)
 
@@ -582,13 +582,11 @@ static void* DeferredInitThread(void*)
     if (outcome == LinuxInitStop::PollOutcome::Stopped) {
         DebugLog("[CR] DeferredInit: stopped early, process is exiting before steamclient.so mapped\n");
         Log::Info("Init stopped early: process exiting before steamclient.so mapped");
-        g_initThreadDone.store(true, std::memory_order_release);
         return nullptr;
     }
     if (outcome != LinuxInitStop::PollOutcome::Ready) {
         DebugLog("[CR] DeferredInit: steamclient.so never mapped within window, aborting\n");
         Log::Error("Init aborted: steamclient.so not mapped within wait window");
-        g_initThreadDone.store(true, std::memory_order_release);
         return nullptr;
     }
     DebugLog("[CR] DeferredInit: starting\n");
@@ -619,7 +617,6 @@ static void* DeferredInitThread(void*)
         InstallCrashDumpHandler();
     }
 
-    g_initThreadDone.store(true, std::memory_order_release);
     return nullptr;
 }
 
@@ -644,7 +641,8 @@ static void OnLoad()
     {
         if (pthread_create(&g_initThread, nullptr, DeferredInitThread, nullptr) != 0) {
             DebugLog("[CR] OnLoad: FAILED to create init thread\n");
-            g_initThreadDone.store(true, std::memory_order_release);
+        } else {
+            g_initThreadCreated.store(true, std::memory_order_release);
         }
     }
 }
@@ -660,7 +658,10 @@ static void OnUnload()
         // this process alive for the rest of that window. The join itself is
         // kept so we never unmap code the thread is still executing.
         LinuxInitStop::ProcessStop().Request();
-        if (!g_initThreadDone.load(std::memory_order_acquire)) {
+        // A joinable pthread must be joined even after its entry point reports
+        // completion. Otherwise the library can unload during the worker's
+        // return epilogue, leaving its instruction pointer in unmapped code.
+        if (g_initThreadCreated.exchange(false, std::memory_order_acq_rel)) {
             DebugLog("[CR] OnUnload: waiting for init thread\n");
             pthread_join(g_initThread, nullptr);
         }
@@ -685,4 +686,3 @@ static void OnUnload()
     if (g_debugFd >= 0)
         close(g_debugFd);
 }
-
