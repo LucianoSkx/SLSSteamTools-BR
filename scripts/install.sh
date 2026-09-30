@@ -200,6 +200,23 @@ instalar_slssteam() {
         ok "SLSsteam $tag instalado"
     fi
 
+    # O setup.sh oficial nao grava o arquivo "version", que e de onde o ASSella
+    # le a versao local. Sem ele o ASSella mostra "Unknown" na aba Health.
+    if [ ! -f "$DIR_SLS/version" ]; then
+        v="${tag:-}"
+        if [ -z "$v" ]; then
+            v="$(curl -fsSL -H 'Accept: application/vnd.github+json' \
+                https://api.github.com/repos/AceSLS/SLSsteam/releases/latest 2>/dev/null \
+                | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+        fi
+        if [ -n "$v" ]; then
+            printf '%s\n' "$v" > "$DIR_SLS/version"
+            ok "versao $v registrada em $DIR_SLS/version (para o ASSella)"
+        else
+            warn "nao foi possivel descobrir a versao do SLSsteam para o ASSella"
+        fi
+    fi
+
     local sh found=0
     for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
         if patch_steam "$sh"; then found=1; fi
