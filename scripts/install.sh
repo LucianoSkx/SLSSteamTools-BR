@@ -20,10 +20,8 @@ DIR_CR="$DIR_DADOS/CloudRedirect"
 DIR_CR_APP="$DIR_CR/app"
 DIR_CR_SRC="$DIR_CR/src"
 
-# O app upstream grava em ACCELA (1 L). O fork pt-BR antigo usava ACCELLA (2 L),
-# entao os dados ficam em ACCELLA e sao copiados para ACCELA na migracao.
+# O app upstream grava em ACCELA (1 L): src/utils/settings.py, APP_NAME.
 DIR_ASSELLA="$DIR_DADOS/ACCELA"
-DIR_ASSELLA_ANTIGO="$DIR_DADOS/ACCELLA"
 
 REPO_CR="https://github.com/LucianoSkx/cloudredirect-BR.git"
 ASSELLA_INSTALL_URL="https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh"
@@ -334,28 +332,11 @@ EOF
 #  ASSella
 # ─────────────────────────────────────────────────────────────────────────────
 
-# O app upstream grava em ACCELA (1 L). O fork pt-BR antigo gravava em ACCELLA
-# (2 L), entao os dados ficam em ACCELLA e sao copiados para ACCELA aqui. O
-# instalador oficial nao conhece esse caso.
-migrar_dados_assella() {
-    [ -d "$DIR_ASSELLA_ANTIGO" ] || return 0
-    if [ -d "$DIR_ASSELLA" ]; then
-        ok "dados ja estao em $DIR_ASSELLA (a pasta antiga $DIR_ASSELLA_ANTIGO foi mantida)"
-        return 0
-    fi
-    warn "os dados estao em $DIR_ASSELLA_ANTIGO (2 L), mas o app usa $DIR_ASSELLA (1 L)"
-    mkdir -p "$DIR_ASSELLA"
-    cp -a "$DIR_ASSELLA_ANTIGO/." "$DIR_ASSELLA/" || die "falha ao migrar os dados do ASSella"
-    ok "dados copiados; a pasta antiga foi preservada em $DIR_ASSELLA_ANTIGO"
-}
-
 # Delegamos ao instalador oficial em vez de reimplementar: e ele que escolhe a
 # release, baixa o AppImage e cria o .desktop e o icone. Assim o caminho, a
 # versao e o ACCELA.AppImage.bak se mantem em dia junto com o upstream.
 instalar_assella() {
     titulo "ASSella (niwia/ASSella)"
-
-    migrar_dados_assella
 
     info "rodando o instalador oficial..."
     curl -fsSL -o "$TMP/assella-install.sh" "$ASSELLA_INSTALL_URL" \
