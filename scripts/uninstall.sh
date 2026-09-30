@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Remove o par SLSsteam + CloudRedirect. Nao apaga dados: config, tokens, saves,
-# backups e o config.yaml do SLSsteam ficam.
-# Uso: ./scripts/uninstall.sh [--yes] [--verbose] [--help]
-
 MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
 FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
 
@@ -64,9 +60,6 @@ confirmar() {
     case "$r" in s|S|y|Y) return 0 ;; *) die "cancelado" ;; esac
 }
 
-# Desfaz o patch do instalador, sem mexer no resto do arquivo e sem tocar em
-# patch de outra ferramenta. Deduplica por inode: os dois caminhos do steam.sh
-# costumam ser o mesmo arquivo.
 declare -A VISTOS=()
 despatch_steam() {
     local sh="$1"
@@ -114,7 +107,6 @@ main() {
     despatch_steam "$HOME/.steam/steam/steam.sh"
     rm -f "$HOME/.local/share/Steam/steam.sh.slssteam.bak" \
           "$HOME/.steam/steam/steam.sh.slssteam.bak"
-    # Artefatos do instalador oficial: .desktop patcheado e PATH do fish.
     rm -f "$DIR_APPS/steam.desktop" "$DIR_APPS/steam-native.desktop" \
           "$HOME/.config/fish/conf.d/SLSsteam.fish"
     rm -rf "$DIR_SLS"

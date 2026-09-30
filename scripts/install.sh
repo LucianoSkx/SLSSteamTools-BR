@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Instalador do par SLSsteam + CloudRedirect, que só funciona junto:
-# o CloudRedirect implanta o hook pelo LD_AUDIT do SLSsteam, e precisa do
-# DisableCloud: no no config dele para nao ser bloqueado.
-# Uso: ./scripts/install.sh [--skip-deps] [--verbose] [--help]
-
-# Via "curl ... | bash" o bash le o script do stdin e nao existe BASH_SOURCE,
-# entao caimos no diretorio de onde o comando foi chamado.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
 
 TMP="$(mktemp -d)"
@@ -84,8 +77,6 @@ done
 SUDO=""
 if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
 
-# Grava a resposta num arquivo em vez de canear para um pipe: com pipefail, um
-# grep -m1 fechando o pipe antes do fim faz o curl sair com erro 23 (EPIPE).
 api_github() {
     local path="$1" saida="$2"
     if [ -n "${GITHUB_TOKEN:-}" ]; then
@@ -121,16 +112,6 @@ install_deps() {
     ok "dependencias instaladas"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  SLSsteam
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Injeta o LD_AUDIT no steam.sh. O arquivo da Valve vem com modo 555, entao
-# precisa de chmod antes de escrita.
-#
-# Idempotencia e pelo nosso marcador, nao por "existe LD_AUDIT": o h3adcr-b
-# tambem patcheia o mesmo arquivo com o mesmo valor, e depender do patch de
-# outro faz o SLSsteam parar de funcionar junto com aquele desinstalador.
 injetar_steam() {
     local sh="$1"
     local modo bak tmp
@@ -174,7 +155,6 @@ patch_steam() {
     return 0
 }
 
-# O padrao do SLSsteam e DisableCloud: yes, que trava o CloudRedirect.
 liberar_cloud_no_sls() {
     local cfg="$1"
     mkdir -p "$(dirname "$cfg")"
@@ -214,19 +194,12 @@ instalar_slssteam() {
         [ -f "$TMP/sls/setup.sh" ] || die "o pacote do SLSsteam nao veio com setup.sh"
 
         info "rodando o instalador oficial (setup.sh install)..."
-        # O setup.sh oficial usa caminhos relativos (./bin/SLSsteam.so), entao
-        # precisa rodar com o diretorio de trabalho no pacote extraido. Ele ainda
-        # sai com codigo 0 mesmo falhando, por isso conferimos o .so depois.
         mkdir -p "$HOME/.config/fish/conf.d" 2>/dev/null || true
         ( cd "$TMP/sls" && bash ./setup.sh install ) || warn "o setup.sh oficial retornou erro"
         [ -f "$DIR_SLS/SLSsteam.so" ] || die "o instalador oficial nao instalou SLSsteam.so"
         ok "SLSsteam $tag instalado"
     fi
 
-    # O setup.sh oficial nao mexe no steam.sh: ele injeta o LD_AUDIT no wrapper
-    # path/steam e no .desktop. Quem chama a Steam direto (digitando "steam", ou
-    # por outro .desktop) nao passa por nenhum dos dois, entao garantimos o
-    # LD_AUDIT no steam.sh tambem. Patch de outra ferramenta e respeitado.
     local sh found=0
     for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
         if patch_steam "$sh"; then found=1; fi
@@ -240,10 +213,6 @@ instalar_slssteam() {
         ok "DisableCloud: no tambem no flatpak do Steam"
     fi
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  CloudRedirect
-# ─────────────────────────────────────────────────────────────────────────────
 
 obter_fonte() {
     if [ -d "$SCRIPT_DIR/../ui-linux" ] && [ -d "$SCRIPT_DIR/../.git" ]; then
@@ -281,7 +250,6 @@ instalar_cloudredirect() {
     install -m 755 "$gui" "$DIR_CR_APP/cloud-redirect-ui"
     ok "GUI instalada em $DIR_CR_APP/cloud-redirect-ui"
 
-    # O .so e a CLI de 32 bits ja vem commitados no repositorio.
     local arq
     for arq in cloud_redirect.so cloud_redirect_cli; do
         [ -f "$FONTE/$arq" ] || die "$arq nao encontrado no repositorio"
@@ -293,8 +261,6 @@ instalar_cloudredirect() {
     fi
     ok "cloud_redirect.so e cloud_redirect_cli (32 bits) ao lado da GUI"
 
-    # Isto e o mesmo que o botao Instalar da aba Montagem faz, e so funciona
-    # porque o SLSsteam ja deixou o LD_AUDIT no lugar.
     mkdir -p "$DIR_CR"
     for arq in cloud_redirect.so cloud_redirect_cli; do
         install -m 755 "$DIR_CR_APP/$arq" "$DIR_CR/$arq"
