@@ -126,8 +126,11 @@ injetar_steam() {
         printf '%s\n' "$MARCADOR_SLS"
         cat <<'INJ'
 _SLS_DIR="$HOME/.local/share/SLSsteam"
+_CR_DIR="$HOME/.local/share/CloudRedirect"
 if [ -f "$_SLS_DIR/library-inject.so" ] && [ -f "$_SLS_DIR/SLSsteam.so" ]; then
-	export LD_AUDIT="$_SLS_DIR/library-inject.so:$_SLS_DIR/SLSsteam.so"
+	_AUDIT="$_SLS_DIR/library-inject.so:$_SLS_DIR/SLSsteam.so"
+	[ -f "$_CR_DIR/cloud_redirect.so" ] && _AUDIT="$_CR_DIR/cloud_redirect.so:$_AUDIT"
+	export LD_AUDIT="$_AUDIT"
 fi
 INJ
         printf '%s\n' "$FIM_MARCADOR_SLS"
@@ -146,13 +149,36 @@ patch_steam() {
     [ -f "$sh" ] || return 1
 
     if grep -q "$MARCADOR_SLS" "$sh"; then
-        ok "patch do instalador ja presente em $sh"
+        # Reaplica se o patch for antigo e nao incluir o cloud_redirect.so.
+        if grep -q 'cloud_redirect.so' "$sh"; then
+            ok "patch do instalador ja presente em $sh"
+        else
+            warn "patch antigo em $sh, sem o cloud_redirect.so; reescrevendo"
+            despatch_steam "$sh"
+            injetar_steam "$sh"
+        fi
     else
         grep -q 'LD_AUDIT' "$sh" && \
             warn "$sh ja tem um patch de LD_AUDIT de outra ferramenta; o nosso sera escrito por cima"
         injetar_steam "$sh"
     fi
     return 0
+}
+
+despatch_steam() {
+    local sh="$1"
+    local tmp modo
+    tmp="$(mktemp)"
+    modo="$(stat -c '%a' "$sh")"
+    awk -v inicio="$MARCADOR_SLS" -v fim="$FIM_MARCADOR_SLS" '
+        $0 == inicio { pulando=1; next }
+        $0 == fim    { pulando=0; next }
+        !pulando
+    ' "$sh" > "$tmp"
+    chmod u+w "$sh"
+    cat "$tmp" > "$sh"
+    chmod "$modo" "$sh"
+    rm -f "$tmp"
 }
 
 liberar_cloud_no_sls() {
@@ -216,12 +242,6 @@ instalar_slssteam() {
             warn "nao foi possivel descobrir a versao do SLSsteam para o ASSella"
         fi
     fi
-
-    local sh found=0
-    for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
-        if patch_steam "$sh"; then found=1; fi
-    done
-    [ "$found" = 1 ] || warn "steam.sh nao encontrado; o SLSsteam so carrega pelo wrapper e pelo .desktop do instalador oficial"
 
     liberar_cloud_no_sls "$DIR_CFG_SLS/config.yaml"
     ok "DisableCloud: no em $DIR_CFG_SLS/config.yaml"
@@ -330,6 +350,14 @@ main() {
 
     titulo "2/2  CloudRedirect"
     instalar_cloudredirect
+
+    # O patch do steam.sh precisa rodar depois do cloud_redirect.so existir em
+    # disco, senao o LD_AUDIT fica sem ele.
+    local sh found=0
+    for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
+        if patch_steam "$sh"; then found=1; fi
+    done
+    [ "$found" = 1 ] || warn "steam.sh nao encontrado; so o wrapper e o .desktop do instalador oficial injetam o LD_AUDIT"
 
     if command -v update-desktop-database >/dev/null 2>&1; then
         run_cmd update-desktop-database -q "$DIR_APPS" || true
