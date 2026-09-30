@@ -88,36 +88,6 @@ aba **Instalação** faz.
 Depois de instalar, **reinicie a Steam** — o `LD_AUDIT` só se aplica a processos
 novos — e abra o CloudRedirect pelo menu.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install.sh | bash
-```
-
-SLSsteam e CloudRedirect vêm juntos, num instalador só: eles não funcionam
-separados. O CloudRedirect implanta o hook na Steam pelo `LD_AUDIT` que o
-SLSsteam instala, e precisa do `DisableCloud: no` no config do SLSsteam para não
-ser bloqueado.
-
-O que o script faz:
-
-**1. SLSsteam** — baixa a release oficial do
-[AceSLS/SLSsteam](https://github.com/AceSLS/SLSsteam) e roda o `setup.sh` de
-dentro do pacote, que copia os binários 32 bits, cria o wrapper `path/steam` e o
-`steam.desktop` com o `LD_AUDIT`. O script injeta o `LD_AUDIT` também no
-`steam.sh`, porque o `setup.sh` oficial não mexe nele e quem chama a Steam
-digitando `steam` não passa nem pelo wrapper nem pelo `.desktop`. O `steam.sh`
-vai com backup em `steam.sh.slssteam.bak` e com o modo `555` original.
-
-O `config.yaml` do SLSsteam fica com `DisableCloud: no`, porque o padrão `yes` do
-upstream trava o CloudRedirect.
-
-**2. CloudRedirect** — compila a interface Qt6 desta fork, instala o
-`cloud_redirect.so` e a CLI, e cria a entrada de menu. O `.so` já vem commitado
-no repositório, em 32 bits, e a implantação é a mesma que o botão **Instalar** da
-aba **Instalação** faz.
-
-Depois de instalar, **reinicie a Steam** — o `LD_AUDIT` só se aplica a processos
-novos — e abra o CloudRedirect pelo menu.
-
 #### Opções
 
 | Opção | Efeito |
