@@ -4,7 +4,9 @@ set -euo pipefail
 # Instalador do conjunto SLSsteam + CloudRedirect (GUI nativa em pt-BR) + ASSella.
 # Uso: ./scripts/install.sh [--skip-deps] [--verbose] [--help]
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Via "curl ... | bash" o bash le o script do stdin e nao existe BASH_SOURCE,
+# entao caimos no diretorio de onde o comando foi chamado.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
 
 DIR_DADOS="$HOME/.local/share"
 DIR_APPS="$DIR_DADOS/applications"

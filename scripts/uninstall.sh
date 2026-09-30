@@ -5,8 +5,7 @@ set -euo pipefail
 # os saves sincronizados, o banco do ASSella e o log do SLSsteam ficam.
 # Uso: ./scripts/uninstall.sh [--yes] [--verbose]
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FONTE_CR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
 
 DIR_DADOS="$HOME/.local/share"
 DIR_APPS="$DIR_DADOS/applications"
@@ -102,10 +101,6 @@ main() {
     titulo "CloudRedirect"
     rm -f "$DIR_APPS/cloudredirect.desktop"
     rm -f "$DIR_ICONS/cloudredirect.png"
-    # O build sai junto quando o codigo clonado esta dentro do proprio diretorio.
-    if [ -d "$DIR_CR/src/ui-linux/build" ] && [ "$DIR_CR/src" = "$FONTE_CR" ]; then
-        rm -rf "$DIR_CR/src/ui-linux/build"
-    fi
     rm -rf "$DIR_CR"
     ok "interface e artefatos removidos de $DIR_CR"
     aviso "ficaram intactos: $HOME/.config/CloudRedirect (config, tokens e saves)"
