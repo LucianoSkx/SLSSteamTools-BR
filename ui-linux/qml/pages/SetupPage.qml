@@ -81,7 +81,7 @@ Page {
                 }
 
                 Button {
-                    text: purgeDialog.canPurge ? "Remove All Data" : "Remove (" + purgeDialog.countdown + ")"
+                    text: purgeDialog.canPurge ? "Remover todos os dados" : "Remover (" + purgeDialog.countdown + ")"
                     enabled: purgeDialog.canPurge
                     onClicked: {
                         if (deployer) deployer.purgeAll()
@@ -149,7 +149,7 @@ Page {
                     }
                     Label {
                         visible: deployer && deployer.slssteamInstalled && deployer.slsCloudBlocked
-                        text: "Set DisableCloud: no in ~/.config/SLSsteam/config.yaml"
+                        text: "Defina DisableCloud: no em ~/.config/SLSsteam/config.yaml"
                         font.family: "monospace"
                         opacity: 0.6
                     }
@@ -230,7 +230,7 @@ Page {
                 }
 
                 Button {
-                    text: "Atualizar"
+                    text: "Recarregar"
                     onClicked: { if (deployer) deployer.checkPrerequisites() }
                 }
             }

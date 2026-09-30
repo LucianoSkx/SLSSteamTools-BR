@@ -12,7 +12,7 @@ Page {
         { value: "gdrive", name: "Google Drive", desc: "Sincroniza os saves com a sua conta do Google Drive." },
         { value: "onedrive", name: "OneDrive", desc: "Sincroniza os saves com a sua conta do Microsoft OneDrive." },
         { value: "r2", name: "Cloudflare R2", desc: "Sincroniza os saves com um bucket do Cloudflare R2 (compatível com S3)." },
-        { value: "s3", name: "S3 Compatible", desc: "Sincroniza os saves com qualquer serviço compatível com S3 (AWS S3, MinIO, Backblaze B2, Wasabi, auto-hospedado)." }
+        { value: "s3", name: "S3 compatível", desc: "Sincroniza os saves com qualquer serviço compatível com S3 (AWS S3, MinIO, Backblaze B2, Wasabi, auto-hospedado)." }
     ]
 
     property bool comboReady: false
@@ -267,7 +267,7 @@ Page {
                         TextField {
                             id: folderPathField
                             Layout.fillWidth: true
-                            placeholderText: "/path/to/sync/folder"
+                            placeholderText: "/caminho/para/a/pasta"
                             text: backend ? backend.syncFolderPath : ""
                             onEditingFinished: { if (backend) backend.syncFolderPath = text }
                         }
@@ -317,29 +317,29 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Account ID"; opacity: 0.8 }
+                        Label { text: "ID da conta"; opacity: 0.8 }
                         TextField {
                             id: r2AccountIdField
                             Layout.fillWidth: true
-                            placeholderText: "e.g. 1a2b3c4d5e6f..."
+                            placeholderText: "ex.: 1a2b3c4d5e6f..."
                         }
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Access Key ID"; opacity: 0.8 }
+                        Label { text: "ID da chave de acesso"; opacity: 0.8 }
                         TextField {
                             id: r2AccessKeyField
                             Layout.fillWidth: true
-                            placeholderText: "R2 access key id"
+                            placeholderText: "id da chave de acesso do R2"
                         }
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Secret Access Key"; opacity: 0.8 }
+                        Label { text: "Chave de acesso secreta"; opacity: 0.8 }
                         TextField {
                             id: r2SecretField
                             Layout.fillWidth: true
@@ -364,11 +364,11 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Key Prefix (opcional)"; opacity: 0.8 }
+                        Label { text: "Prefixo de chave (opcional)"; opacity: 0.8 }
                         TextField {
                             id: r2KeyPrefixField
                             Layout.fillWidth: true
-                            placeholderText: "e.g. cloudredirect/"
+                            placeholderText: "ex.: cloudredirect/"
                         }
                     }
 
@@ -379,7 +379,7 @@ Page {
                         TextField {
                             id: r2EndpointField
                             Layout.fillWidth: true
-                            placeholderText: "leave blank for <account>.r2.cloudflarestorage.com"
+                            placeholderText: "deixe em branco para <conta>.r2.cloudflarestorage.com"
                         }
                     }
 
@@ -418,14 +418,14 @@ Page {
                         TextField {
                             id: s3EndpointField
                             Layout.fillWidth: true
-                            placeholderText: "e.g. s3.us-east-1.amazonaws.com or minio.example.com:9000"
+                            placeholderText: "ex.: s3.us-east-1.amazonaws.com ou minio.example.com:9000"
                         }
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Access Key ID"; opacity: 0.8 }
+                        Label { text: "ID da chave de acesso"; opacity: 0.8 }
                         TextField {
                             id: s3AccessKeyField
                             Layout.fillWidth: true
@@ -436,7 +436,7 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Secret Access Key"; opacity: 0.8 }
+                        Label { text: "Chave de acesso secreta"; opacity: 0.8 }
                         TextField {
                             id: s3SecretField
                             Layout.fillWidth: true
@@ -461,22 +461,22 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Region"; opacity: 0.8 }
+                        Label { text: "Região"; opacity: 0.8 }
                         TextField {
                             id: s3RegionField
                             Layout.fillWidth: true
-                            placeholderText: "e.g. us-east-1"
+                            placeholderText: "ex.: us-east-1"
                         }
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Key Prefix (opcional)"; opacity: 0.8 }
+                        Label { text: "Prefixo de chave (opcional)"; opacity: 0.8 }
                         TextField {
                             id: s3KeyPrefixField
                             Layout.fillWidth: true
-                            placeholderText: "e.g. cloudredirect/"
+                            placeholderText: "ex.: cloudredirect/"
                         }
                     }
 
@@ -489,7 +489,7 @@ Page {
 
                     CheckBox {
                         id: s3SignPayloadCheck
-                        text: "Assinar o corpo das requisições (hash SHA-256 do body)"
+                        text: "Assinar o corpo das requisições (hash SHA-256 do conteúdo)"
                     }
                     CheckBox {
                         id: s3InsecureHttpCheck

@@ -323,7 +323,7 @@ Page {
                             }
 
                             Label {
-                                text: "ID: " + modelData.appId + "  -  " + modelData.fileCount + " file(s)  -  " + modelData.sizeFormatted
+                                text: "ID: " + modelData.appId + "  -  " + modelData.fileCount + " arquivo(s)  -  " + modelData.sizeFormatted
                                 opacity: 0.7
                             }
 
@@ -364,7 +364,7 @@ Page {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 40
                 visible: backupsList.length === 0
-                text: "Nenhum backup encontrado.\n\nOs backups são criados automaticamente quando você exclui os dados de um app."
+                text: "Nenhum backup encontrado.\n\nOs backups são criados automaticamente quando você exclui os dados de um aplicativo."
                 horizontalAlignment: Text.AlignHCenter
                 opacity: 0.5
             }

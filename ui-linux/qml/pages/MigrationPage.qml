@@ -11,7 +11,7 @@ Page {
         { value: "gdrive",   name: "Google Drive" },
         { value: "onedrive", name: "OneDrive" },
         { value: "r2",       name: "Cloudflare R2" },
-        { value: "s3",       name: "S3 Compatible" }
+        { value: "s3",       name: "S3 compatível" }
     ]
 
     // UI phase: "config" | "progress" | "result"

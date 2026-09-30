@@ -243,7 +243,7 @@ void Backend::scanStorageForApps()
             size += it.fileInfo().size();
         }
 
-        QString name = m_nameCache.value(appId, QString("App %1").arg(appId));
+        QString name = m_nameCache.value(appId, QString("Aplicativo %1").arg(appId));
         m_apps.append({appId, name, QString(), saveRoot, count, size, true, false});
     }
 
@@ -288,7 +288,7 @@ void Backend::loadSLSsteamApps()
                 bool ok;
                 uint appId = numStr.toUInt(&ok);
                 if (ok && appId > 0) {
-                    QString name = m_nameCache.value(appId, QString("App %1").arg(appId));
+                    QString name = m_nameCache.value(appId, QString("Aplicativo %1").arg(appId));
                     m_apps.append({appId, name, QString(), QString(), 0, 0, true, false});
                 }
             }
@@ -799,7 +799,7 @@ QVariantList Backend::scanOrphans()
         if (!orphans.isEmpty()) {
             QVariantMap entry;
             entry["appId"] = appId;
-            entry["name"] = m_nameCache.value(appId, QString("App %1").arg(appId));
+            entry["name"] = m_nameCache.value(appId, QString("Aplicativo %1").arg(appId));
             entry["orphanCount"] = orphans.size();
             entry["orphanSize"] = orphanSize;
             entry["orphanSizeFormatted"] = formatSize(orphanSize);
@@ -1025,7 +1025,7 @@ void Backend::fetchCliRemoteApps(const QString &provider)
         }
         for (uint32_t appId : m_remoteAppIds) {
             if (!localAppIds.contains(appId)) {
-                QString name = m_nameCache.value(appId, QString("App %1").arg(appId));
+                QString name = m_nameCache.value(appId, QString("Aplicativo %1").arg(appId));
                 m_apps.append({appId, name, QString(), QString(), 0, 0, false, true});
             }
         }
@@ -1155,7 +1155,7 @@ void Backend::fetchGoogleDriveApps(const QString &token)
                 // Add remote-only apps
                 for (uint32_t appId : m_remoteAppIds) {
                     if (!localAppIds.contains(appId)) {
-                        QString name = m_nameCache.value(appId, QString("App %1").arg(appId));
+                        QString name = m_nameCache.value(appId, QString("Aplicativo %1").arg(appId));
                         m_apps.append({appId, name, QString(), QString(), 0, 0, false, true});
                     }
                 }
@@ -1212,7 +1212,7 @@ void Backend::fetchOneDriveApps(const QString &token)
         }
         for (uint32_t appId : m_remoteAppIds) {
             if (!localAppIds.contains(appId)) {
-                QString name = m_nameCache.value(appId, QString("App %1").arg(appId));
+                QString name = m_nameCache.value(appId, QString("Aplicativo %1").arg(appId));
                 m_apps.append({appId, name, QString(), QString(), 0, 0, false, true});
             }
         }
@@ -1567,7 +1567,7 @@ QString Backend::getAppName(uint appId) const
 {
     if (m_nameCache.contains(appId))
         return m_nameCache[appId];
-    return QString("App %1").arg(appId);
+    return QString("Aplicativo %1").arg(appId);
 }
 
 QString Backend::getAppHeaderUrl(uint appId) const
@@ -2096,7 +2096,7 @@ QString Backend::providerLabel(const QString &provider) const
     if (provider == "gdrive")   return "Google Drive";
     if (provider == "onedrive") return "OneDrive";
     if (provider == "r2")       return "Cloudflare R2";
-    if (provider == "s3")       return "S3 Compatible";
+    if (provider == "s3")       return "S3 compatível";
     if (provider == "folder")   return "Pasta personalizada";
     if (provider == "local")    return "Armazenamento local";
     return provider;
@@ -2299,7 +2299,7 @@ void Backend::scanProvider(const QString &provider)
         for (uint32_t id : pending) {
             AppInfo info;
             info.appId = id;
-            info.name = QString("App %1").arg(id);
+            info.name = QString("Aplicativo %1").arg(id);
             bool already = false;
             for (const auto &a : m_apps) { if (a.appId == id) { already = true; break; } }
             if (!already)

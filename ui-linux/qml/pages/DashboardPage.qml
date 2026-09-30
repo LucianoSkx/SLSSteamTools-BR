@@ -101,7 +101,7 @@ Page {
                     spacing: 4
 
                     Label {
-                        text: "Apps sincronizados"
+                        text: "Aplicativos sincronizados"
                         font.bold: true
                     }
                     Label {

@@ -214,7 +214,7 @@ Page {
             Label {
                 text: orphanDialog.results.length === 0
                       ? "Nenhum blob órfão encontrado. O armazenamento está limpo."
-                      : orphanDialog.results.length + " app(s) com blobs órfãos:"
+                      : orphanDialog.results.length + " aplicativo(s) com blobs órfãos:"
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -394,7 +394,7 @@ Page {
             }
 
             Label {
-                text: "Apps com dados de save no armazenamento em nuvem que ainda não foram baixados localmente."
+                text: "Aplicativos com dados de save no armazenamento em nuvem que ainda não foram baixados localmente."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -473,7 +473,7 @@ Page {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 40
                 visible: appsList.length === 0
-                text: "Nenhum app encontrado.\n\nInstale jogos pelo SLSsteam para vê-los aqui."
+                text: "Nenhum aplicativo encontrado.\n\nInstale jogos pelo SLSsteam para vê-los aqui."
                 horizontalAlignment: Text.AlignHCenter
                 opacity: 0.5
             }
@@ -482,7 +482,7 @@ Page {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 40
                 visible: appsList.length > 0 && filteredLocalApps.length === 0 && filteredRemoteApps.length === 0 && searchText !== ""
-                text: "Nenhum app corresponde a \"" + searchText + "\""
+                text: "Nenhum aplicativo corresponde a \"" + searchText + "\""
                 horizontalAlignment: Text.AlignHCenter
                 opacity: 0.5
             }
