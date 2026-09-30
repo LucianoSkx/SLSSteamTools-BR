@@ -177,7 +177,7 @@ void OAuthService::startAuth(const QString &provider, const QString &tokenPath)
     if (provider == "onedrive") {
         // rclone's Azure AD app only has http://localhost:53682/ registered
         if (!m_server->listen(QHostAddress::LocalHost, 53682)) {
-            emit authFailed(provider, "Failed to start local HTTP server on port 53682: " + m_server->errorString());
+            emit authFailed(provider, "Falha ao iniciar o servidor HTTP local na porta 53682: " + m_server->errorString());
             delete m_server;
             m_server = nullptr;
             return;
@@ -186,7 +186,7 @@ void OAuthService::startAuth(const QString &provider, const QString &tokenPath)
     } else if (provider == "gdrive") {
         // Fixed port for Google Drive, ugh
         if (!m_server->listen(QHostAddress::LocalHost, 53692)) {
-            emit authFailed(provider, "Failed to start local HTTP server on port 53692: " + m_server->errorString());
+            emit authFailed(provider, "Falha ao iniciar o servidor HTTP local na porta 53692: " + m_server->errorString());
             delete m_server;
             m_server = nullptr;
             return;
@@ -195,7 +195,7 @@ void OAuthService::startAuth(const QString &provider, const QString &tokenPath)
     } else {
         // Other providers use dynamic port
         if (!m_server->listen(QHostAddress::LocalHost, 0)) {
-            emit authFailed(provider, "Failed to start local HTTP server: " + m_server->errorString());
+            emit authFailed(provider, "Falha ao iniciar o servidor HTTP local: " + m_server->errorString());
             delete m_server;
             m_server = nullptr;
             return;
@@ -206,7 +206,7 @@ void OAuthService::startAuth(const QString &provider, const QString &tokenPath)
     m_port = m_server->serverPort();
     connect(m_server, &QTcpServer::newConnection, this, &OAuthService::onNewConnection);
 
-    emit statusMessage(QString("Listening on %1").arg(m_redirectUri));
+    emit statusMessage(QString("Ouvindo em %1").arg(m_redirectUri));
 
     // Build auth URL
     QUrl authUrl;
@@ -234,7 +234,7 @@ void OAuthService::startAuth(const QString &provider, const QString &tokenPath)
         params.addQueryItem("code_challenge", codeChallenge);
         params.addQueryItem("code_challenge_method", "S256");
     } else {
-        emit authFailed(provider, "Unknown provider: " + provider);
+        emit authFailed(provider, "Provedor desconhecido: " + provider);
         cancel();
         return;
     }
@@ -242,7 +242,7 @@ void OAuthService::startAuth(const QString &provider, const QString &tokenPath)
     authUrl.setQuery(params);
 
     qDebug() << "[OAuth] Auth URL:" << authUrl.toString();
-    emit statusMessage("Opening browser for authorization...");
+    emit statusMessage("Abrindo o navegador para autorizar...");
     if (!QDesktopServices::openUrl(authUrl)) {
         qWarning() << "[OAuth] Failed to open browser, emitting URL for manual copy";
         emit browserFailed(authUrl.toString());
@@ -330,13 +330,13 @@ void OAuthService::onNewConnection()
 
         // Process result after socket is cleaned up
         if (!error.isEmpty()) {
-            emit authFailed(m_provider, "Authorization denied: " + error);
+            emit authFailed(m_provider, "Autorização negada: " + error);
             cancel();
         } else if (code.isEmpty() || !stateValid) {
-            emit authFailed(m_provider, "Invalid state or missing code");
+            emit authFailed(m_provider, "Estado inválido ou código ausente");
             cancel();
         } else {
-            emit statusMessage("Authorization code received. Exchanging for tokens...");
+            emit statusMessage("Código de autorização recebido. Trocando por tokens...");
             exchangeCodeForTokens(code);
         }
     });
@@ -385,13 +385,13 @@ void OAuthService::exchangeCodeForTokens(const QString &code, int retryCount)
             // Retry once -- broken IPv6 fails instantly, retry gives IPv4 a chance
             if (retryCount < 2) {
                 qDebug() << "[OAuth] Token exchange failed, retrying:" << reply->errorString();
-                emit statusMessage("Retrying token exchange...");
+                emit statusMessage("Tentando trocar o token novamente...");
                 QTimer::singleShot(500, this, [this, code, retryCount]() {
                     exchangeCodeForTokens(code, retryCount + 1);
                 });
                 return;
             }
-            emit authFailed(m_provider, "Token exchange failed: " + reply->errorString());
+            emit authFailed(m_provider, "Falha ao trocar o token: " + reply->errorString());
             cancel();
             return;
         }
@@ -399,7 +399,7 @@ void OAuthService::exchangeCodeForTokens(const QString &code, int retryCount)
         QByteArray responseData = reply->readAll();
         QJsonDocument doc = QJsonDocument::fromJson(responseData);
         if (!doc.isObject()) {
-            emit authFailed(m_provider, "Invalid token response");
+            emit authFailed(m_provider, "Resposta de token inválida");
             cancel();
             return;
         }
@@ -410,7 +410,7 @@ void OAuthService::exchangeCodeForTokens(const QString &code, int retryCount)
         qint64 expiresIn = obj.value("expires_in").toInteger(3600);
 
         if (refreshToken.isEmpty()) {
-            emit authFailed(m_provider, "No refresh token received. Try revoking access and re-authenticating.");
+            emit authFailed(m_provider, "Nenhum refresh token recebido. Tente revogar o acesso e autenticar de novo.");
             cancel();
             return;
         }
@@ -439,7 +439,7 @@ void OAuthService::exchangeCodeForTokens(const QString &code, int retryCount)
             QString tempPath = m_tokenPath + ".tmp";
             int fd = open(tempPath.toUtf8().constData(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
             if (fd < 0) {
-                emit authFailed(m_provider, "Failed to create token temp file");
+                emit authFailed(m_provider, "Falha ao criar o arquivo temporário do token");
                 cancel();
                 return;
             }
@@ -451,7 +451,7 @@ void OAuthService::exchangeCodeForTokens(const QString &code, int retryCount)
                     if (errno == EINTR) continue;
                     ::close(fd);
                     unlink(tempPath.toUtf8().constData());
-                    emit authFailed(m_provider, "Failed to write token file");
+                    emit authFailed(m_provider, "Falha ao gravar o arquivo de token");
                     cancel();
                     return;
                 }
@@ -460,13 +460,13 @@ void OAuthService::exchangeCodeForTokens(const QString &code, int retryCount)
             ::close(fd);
             if (rename(tempPath.toUtf8().constData(), m_tokenPath.toUtf8().constData()) != 0) {
                 unlink(tempPath.toUtf8().constData());
-                emit authFailed(m_provider, "Failed to finalize token file");
+                emit authFailed(m_provider, "Falha ao finalizar o arquivo de token");
                 cancel();
                 return;
             }
         }
 
-        emit statusMessage(QString("Tokens saved. Access token expires in %1s (auto-refresh enabled).").arg(expiresIn));
+        emit statusMessage(QString("Tokens salvos. O access token expira em %1s (renovação automática ativada).").arg(expiresIn));
         emit authSucceeded(m_provider);
         cancel(); // stop listener
     });

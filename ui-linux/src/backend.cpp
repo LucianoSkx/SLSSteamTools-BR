@@ -1494,10 +1494,10 @@ QString Backend::restoreBackup(const QString &backupPath)
 {
     QString cleanBackupPath = QDir::cleanPath(backupPath);
     if (!isPathWithin(backupRootForAccount(m_accountId), cleanBackupPath))
-        return "Invalid backup path";
+        return "Caminho de backup inválido";
 
     QFile undoFile(cleanBackupPath + "/undo_log.json");
-    if (!undoFile.open(QIODevice::ReadOnly)) return "Cannot read undo log";
+    if (!undoFile.open(QIODevice::ReadOnly)) return "Não foi possível ler o log de undo";
     
     QJsonDocument doc = QJsonDocument::fromJson(undoFile.readAll());
     undoFile.close();
@@ -1516,7 +1516,7 @@ QString Backend::restoreBackup(const QString &backupPath)
             QString backupFile = dest;
             if (!isPathWithin(cleanBackupPath, backupFile)) {
                 skipped++;
-                errors.append("Skipped invalid backup entry: " + backupFile);
+                errors.append("Entrada de backup inválida ignorada: " + backupFile);
                 continue;
             }
             QString originalPath = o["source"].toString();
@@ -1525,13 +1525,13 @@ QString Backend::restoreBackup(const QString &backupPath)
             if (!isPathWithin(m_storagePath, originalPath) &&
                 !isPathWithin(m_steamPath + "/userdata", originalPath)) {
                 skipped++;
-                errors.append("Skipped unsafe restore path: " + originalPath);
+                errors.append("Caminho de restauração inseguro ignorado: " + originalPath);
                 continue;
             }
             
             if (!QFile::exists(backupFile)) {
                 skipped++;
-                errors.append("Backup file missing: " + backupFile);
+                errors.append("Arquivo de backup ausente: " + backupFile);
                 continue;
             }
             
@@ -1541,14 +1541,14 @@ QString Backend::restoreBackup(const QString &backupPath)
                 restored++;
             } else {
                 skipped++;
-                errors.append("Failed to restore: " + originalPath);
+                errors.append("Falha ao restaurar: " + originalPath);
             }
         }
     }
     
-    return QString("Restored %1 file(s), %2 skipped%3")
+    return QString("Restaurados %1 arquivo(s), %2 ignorado(s)%3")
         .arg(restored).arg(skipped)
-        .arg(errors.isEmpty() ? "" : ". Errors: " + errors.join("; "));
+        .arg(errors.isEmpty() ? "" : ". Erros: " + errors.join("; "));
 }
 
 void Backend::deleteBackup(const QString &backupPath)
@@ -2097,8 +2097,8 @@ QString Backend::providerLabel(const QString &provider) const
     if (provider == "onedrive") return "OneDrive";
     if (provider == "r2")       return "Cloudflare R2";
     if (provider == "s3")       return "S3 Compatible";
-    if (provider == "folder")   return "Custom Folder";
-    if (provider == "local")    return "Local Storage";
+    if (provider == "folder")   return "Pasta personalizada";
+    if (provider == "local")    return "Armazenamento local";
     return provider;
 }
 
@@ -2148,22 +2148,22 @@ QVariantMap Backend::checkProviderCredentials(const QString &provider) const
     QString tokenPath = resolveTokenPath(provider);
     if (tokenPath.isEmpty()) {
         out["ok"] = false;
-        out["message"] = "Cannot determine credential path";
+        out["message"] = "Não foi possível determinar o caminho das credenciais";
         return out;
     }
     QFileInfo fi(tokenPath);
     if (!fi.exists()) {
         out["ok"] = false;
-        out["message"] = "Credential file not found.\nExpected: " + tokenPath;
+        out["message"] = "Arquivo de credenciais não encontrado.\nEsperado: " + tokenPath;
         return out;
     }
     if (fi.size() == 0) {
         out["ok"] = false;
-        out["message"] = "Credential file is empty: " + fi.fileName();
+        out["message"] = "Arquivo de credenciais vazio: " + fi.fileName();
         return out;
     }
     out["ok"] = true;
-    out["message"] = "Credentials found";
+    out["message"] = "Credenciais encontradas";
     return out;
 }
 
@@ -2252,7 +2252,7 @@ void Backend::scanProvider(const QString &provider)
 
     connect(proc, &QProcess::errorOccurred, this, [this, proc](QProcess::ProcessError) {
         if (proc != m_scanProc) return;
-        emit migrationScanFinished(QVariantList(), "Failed to launch CLI: " + proc->errorString());
+        emit migrationScanFinished(QVariantList(), "Falha ao iniciar a CLI: " + proc->errorString());
         m_scanProc = nullptr;
         proc->deleteLater();
     });
@@ -2356,7 +2356,7 @@ void Backend::testProviderConnection(const QString &provider)
     connect(proc, &QProcess::errorOccurred, this, [this, proc, provider](QProcess::ProcessError) {
         if (proc != m_testProc) return;
         m_testProc = nullptr;
-        emit providerTestFinished(provider, false, "Failed to launch CLI: " + proc->errorString());
+        emit providerTestFinished(provider, false, "Falha ao iniciar a CLI: " + proc->errorString());
         proc->deleteLater();
     });
 
@@ -2446,7 +2446,7 @@ void Backend::startMigration(const QString &src, const QString &dst)
     connect(proc, &QProcess::errorOccurred, this, [this, proc](QProcess::ProcessError) {
         if (proc != m_migrateProc) return;
         if (m_migError.isEmpty() && !m_migrateCancelled)
-            m_migError = "Failed to launch CLI: " + proc->errorString();
+            m_migError = "Falha ao iniciar a CLI: " + proc->errorString();
     });
 
     connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),

@@ -3,11 +3,11 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Page {
-    title: "Setup"
+    title: "Instalação"
 
     Dialog {
         id: purgeDialog
-        title: "Remove All Data"
+        title: "Remover todos os dados"
         modal: true
         standardButtons: Dialog.NoButton
         anchors.centerIn: parent
@@ -44,7 +44,7 @@ Page {
             spacing: 10
 
             Label {
-                text: "This will permanently remove:"
+                text: "Isto removerá permanentemente:"
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -54,16 +54,16 @@ Page {
                 spacing: 2
                 Layout.leftMargin: 12
 
-                Label { text: "• CloudRedirect from Steam (LD_AUDIT hook)"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Label { text: "• cloud_redirect.so and CLI binary"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Label { text: "• All configuration and settings"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Label { text: "• CloudRedirect da Steam (hook LD_AUDIT)"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Label { text: "• cloud_redirect.so e o binário da CLI"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Label { text: "• Toda a configuração e todos os ajustes"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 Label { text: "• OAuth tokens (Google Drive / OneDrive)"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Label { text: "• All cached saves and cloud data"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Label { text: "• Logs and backups"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Label { text: "• Todos os saves em cache e os dados da nuvem"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Label { text: "• Logs e backups"; opacity: 0.8; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             }
 
             Label {
-                text: "This cannot be undone. You will need to re-authenticate and re-deploy to use CloudRedirect again."
+                text: "Isto não pode ser desfeito. Você precisará se autenticar e instalar o CloudRedirect de novo para continuar usando."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 opacity: 0.7
@@ -76,7 +76,7 @@ Page {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Cancel"
+                    text: "Cancelar"
                     onClicked: purgeDialog.close()
                 }
 
@@ -103,7 +103,7 @@ Page {
             Item { height: 8 }
 
             Label {
-                text: "Setup"
+                text: "Instalação"
                 font.pointSize: 16
                 font.bold: true
                 Layout.leftMargin: 20
@@ -116,7 +116,7 @@ Page {
             }
 
             Label {
-                text: "Deploy or remove CloudRedirect."
+                text: "Instale ou remova o CloudRedirect."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -139,12 +139,12 @@ Page {
                         font.bold: true
                     }
                     Label {
-                        text: deployer && deployer.slssteamInstalled ? "Installed" : "Not found"
+                        text: deployer && deployer.slssteamInstalled ? "Instalado" : "Não encontrado"
                         opacity: 0.7
                     }
                     Label {
                         visible: deployer && deployer.slssteamInstalled && deployer.slsCloudBlocked
-                        text: "Cloud Saving is disabled in your SLSsteam config!"
+                        text: "O salvamento na nuvem está desativado na sua configuração do SLSsteam!"
                         color: "#e74c3c"
                     }
                     Label {
@@ -172,10 +172,10 @@ Page {
                     }
                     Label {
                         text: {
-                            if (!deployer) return "Unknown"
-                            if (!deployer.alreadyDeployed) return "Not deployed"
-                            if (deployer.updateAvailable) return "Update available"
-                            return "Deployed, up to date"
+                            if (!deployer) return "Desconhecido"
+                            if (!deployer.alreadyDeployed) return "Não instalado"
+                            if (deployer.updateAvailable) return "Atualização disponível"
+                            return "Instalado e atualizado"
                         }
                         opacity: 0.7
                     }
@@ -205,32 +205,32 @@ Page {
                 spacing: 8
 
                 Button {
-                    text: "Deploy"
+                    text: "Instalar"
                     enabled: deployer && deployer.slssteamInstalled && !deployer.alreadyDeployed
                     highlighted: deployer && deployer.slssteamInstalled && !deployer.alreadyDeployed
                     onClicked: { if (deployer) deployer.deploy() }
                 }
 
                 Button {
-                    text: "Update"
+                    text: "Atualizar"
                     visible: deployer && deployer.updateAvailable
                     highlighted: true
                     onClicked: { if (deployer) deployer.update() }
                 }
 
                 Button {
-                    text: "Remove"
+                    text: "Remover"
                     enabled: deployer && deployer.alreadyDeployed
                     onClicked: { if (deployer) deployer.undeploy() }
                 }
 
                 Button {
-                    text: "Remove All Data"
+                    text: "Remover todos os dados"
                     onClicked: purgeDialog.open()
                 }
 
                 Button {
-                    text: "Refresh"
+                    text: "Atualizar"
                     onClicked: { if (deployer) deployer.checkPrerequisites() }
                 }
             }

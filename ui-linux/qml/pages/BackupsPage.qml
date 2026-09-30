@@ -52,7 +52,7 @@ Page {
     // Restore confirmation dialog
     Dialog {
         id: restoreDialog
-        title: "Restore Backup"
+        title: "Restaurar backup"
         modal: true
         standardButtons: Dialog.NoButton
         anchors.centerIn: parent
@@ -67,7 +67,7 @@ Page {
             spacing: 10
 
             Label {
-                text: "Restore backup for '" + (backend ? backend.getAppName(restoreDialog.targetBackup ? restoreDialog.targetBackup.appId : 0) : "Unknown") + "'?"
+                text: "Restaurar o backup de '" + (backend ? backend.getAppName(restoreDialog.targetBackup ? restoreDialog.targetBackup.appId : 0) : "Desconhecido") + "'?"
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -75,7 +75,7 @@ Page {
             }
 
             Label {
-                text: "ID: " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.appId : "") + "  -  " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.fileCount : "") + " file(s), " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.sizeFormatted : "")
+                text: "ID: " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.appId : "") + "  -  " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.fileCount : "") + " arquivo(s), " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.sizeFormatted : "")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 opacity: 0.7
@@ -83,7 +83,7 @@ Page {
             }
 
             Label {
-                text: "Created: " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.timestamp : "")
+                text: "Criado: " + (restoreDialog.targetBackup ? restoreDialog.targetBackup.timestamp : "")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 opacity: 0.7
@@ -91,7 +91,7 @@ Page {
             }
 
             Label {
-                text: "This will overwrite any existing save data for this app."
+                text: "Isto substituirá quaisquer dados de save existentes deste aplicativo."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 visible: !restoreDialog.isRestoring && restoreDialog.resultMessage === ""
@@ -99,7 +99,7 @@ Page {
 
             // Restoring state
             Label {
-                text: "Restoring..."
+                text: "Restaurando..."
                 visible: restoreDialog.isRestoring
                 Layout.alignment: Qt.AlignHCenter
             }
@@ -119,7 +119,7 @@ Page {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: restoreDialog.resultMessage !== "" ? "Close" : "Cancel"
+                    text: restoreDialog.resultMessage !== "" ? "Fechar" : "Cancelar"
                     onClicked: {
                         restoreDialog.resultMessage = ""
                         restoreDialog.isRestoring = false
@@ -128,11 +128,11 @@ Page {
                 }
 
                 Button {
-                    text: "Restore"
+                    text: "Restaurar"
                     visible: !restoreDialog.isRestoring && restoreDialog.resultMessage === ""
                     onClicked: {
                         if (!backend || !restoreDialog.targetBackup) {
-                            restoreDialog.resultMessage = "No backup selected"
+                            restoreDialog.resultMessage = "Nenhum backup selecionado"
                             return
                         }
                         restoreDialog.isRestoring = true
@@ -149,7 +149,7 @@ Page {
     // Delete backup confirmation dialog
     Dialog {
         id: deleteBackupDialog
-        title: "Delete Backup"
+        title: "Excluir backup"
         modal: true
         standardButtons: Dialog.NoButton
         anchors.centerIn: parent
@@ -187,27 +187,27 @@ Page {
             spacing: 10
 
             Label {
-                text: "Delete this backup permanently?"
+                text: "Excluir este backup permanentemente?"
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
 
             Label {
-                text: deleteBackupDialog.targetBackup ? (backend ? backend.getAppName(deleteBackupDialog.targetBackup.appId) : "Unknown") + " (" + deleteBackupDialog.targetBackup.appId + ")" : ""
+                text: deleteBackupDialog.targetBackup ? (backend ? backend.getAppName(deleteBackupDialog.targetBackup.appId) : "Desconhecido") + " (" + deleteBackupDialog.targetBackup.appId + ")" : ""
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
 
             Label {
-                text: deleteBackupDialog.targetBackup ? deleteBackupDialog.targetBackup.fileCount + " file(s), " + deleteBackupDialog.targetBackup.sizeFormatted : ""
+                text: deleteBackupDialog.targetBackup ? deleteBackupDialog.targetBackup.fileCount + " arquivo(s), " + deleteBackupDialog.targetBackup.sizeFormatted : ""
                 opacity: 0.7
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
 
             Label {
-                text: "This cannot be undone."
+                text: "Isto não pode ser desfeito."
                 opacity: 0.7
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -220,12 +220,12 @@ Page {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Cancel"
+                    text: "Cancelar"
                     onClicked: deleteBackupDialog.close()
                 }
 
                 Button {
-                    text: deleteBackupDialog.canDelete ? "Delete" : "Delete (" + deleteBackupDialog.countdown + ")"
+                    text: deleteBackupDialog.canDelete ? "Excluir" : "Excluir (" + deleteBackupDialog.countdown + ")"
                     enabled: deleteBackupDialog.canDelete
                     onClicked: {
                         if (deleteBackupDialog.targetBackup && backend) {
@@ -257,7 +257,7 @@ Page {
             }
 
             Label {
-                text: "Save data backups created before deletion. Restore to recover deleted saves."
+                text: "Backups dos dados de save criados antes da exclusão. Restaure para recuperar saves excluídos."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -268,7 +268,7 @@ Page {
             // Search bar
             TextField {
                 id: backupSearchField
-                placeholderText: "Search by name or App ID..."
+                placeholderText: "Buscar pelo nome ou pelo App ID..."
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
                 Layout.rightMargin: 20
@@ -316,7 +316,7 @@ Page {
                             spacing: 4
 
                             Label {
-                                text: backend ? backend.getAppName(modelData.appId) : "Unknown"
+                                text: backend ? backend.getAppName(modelData.appId) : "Desconhecido"
                                 font.bold: true
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
@@ -337,7 +337,7 @@ Page {
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: "Restore"
+                            text: "Restaurar"
                             onClicked: {
                                 restoreDialog.targetBackup = modelData
                                 restoreDialog.resultMessage = ""
@@ -348,7 +348,7 @@ Page {
 
                         Button {
                             icon.name: "edit-delete"
-                            text: "Delete"
+                            text: "Excluir"
                             display: AbstractButton.TextBesideIcon
                             onClicked: {
                                 deleteBackupDialog.targetBackup = modelData
@@ -364,7 +364,7 @@ Page {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 40
                 visible: backupsList.length === 0
-                text: "No backups found.\n\nBackups are created automatically when you delete app data."
+                text: "Nenhum backup encontrado.\n\nOs backups são criados automaticamente quando você exclui os dados de um app."
                 horizontalAlignment: Text.AlignHCenter
                 opacity: 0.5
             }
@@ -374,7 +374,7 @@ Page {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 40
                 visible: backupsList.length > 0 && filteredBackups().length === 0 && searchText !== ""
-                text: "No backups match \"" + searchText + "\""
+                text: "Nenhum backup corresponde a \"" + searchText + "\""
                 horizontalAlignment: Text.AlignHCenter
                 opacity: 0.5
             }

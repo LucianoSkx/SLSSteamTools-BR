@@ -4,7 +4,7 @@ import QtQuick.Layouts
 
 Page {
     id: page
-    title: "Migration"
+    title: "Migração"
 
     // Provider options for the source/dest combos (cloud providers only).
     property var providers: [
@@ -76,7 +76,7 @@ Page {
         sourceApps = []
         if (!src || !dst) { setValidation("", false); scanDebounce.stop(); return }
         if (src === dst) {
-            setValidation("Source and destination must be different providers.", true)
+            setValidation("A origem e o destino precisam ser provedores diferentes.", true)
             scanDebounce.stop()
             return
         }
@@ -123,13 +123,13 @@ Page {
         function onMigrationScanFinished(apps, error) {
             page.scanning = false
             if (error && error.length > 0) {
-                page.setValidation("Scan failed: " + error, true)
+                page.setValidation("Falha na varredura: " + error, true)
                 page.sourceApps = []
                 return
             }
             page.sourceApps = apps
             if (apps.length === 0)
-                page.setValidation("No cloud data found on source provider.", true)
+                page.setValidation("Nenhum dado na nuvem encontrado no provedor de origem.", true)
             else
                 page.setValidation("", false)
         }
@@ -145,8 +145,8 @@ Page {
             page.indeterminate = true
             page.progStatus = message
             var parts = []
-            if (total > 0) parts.push("Account " + Math.max(done, 0) + " / " + total)
-            if (found > 0) parts.push(found + " file(s) found")
+            if (total > 0) parts.push("Conta " + Math.max(done, 0) + " / " + total)
+            if (found > 0) parts.push(found + " arquivo(s) encontrado(s)")
             page.progDetail = parts.join("  \u2022  ")
         }
 
@@ -160,7 +160,7 @@ Page {
             page.indeterminate = false
             page.progDone = done
             page.progTotal = total
-            page.progStatus = done + " / " + total + " files"
+            page.progStatus = done + " / " + total + " arquivos"
             page.progDetail = file
         }
 
@@ -181,15 +181,15 @@ Page {
         Item { height: 8 }
 
             Label {
-                text: "Migrate Cloud Saves"
+                text: "Migrar saves da nuvem"
                 font.pointSize: 16
                 font.bold: true
                 Layout.leftMargin: 20
             }
 
             Label {
-                text: "Copy all your cloud saves from one provider to another. "
-                    + "The destination becomes your active provider when the migration succeeds."
+                text: "Copie todos os seus saves da nuvem de um provedor para outro. "
+                    + "O destino vira o seu provedor ativo quando a migração for concluída."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -207,7 +207,7 @@ Page {
                 RowLayout {
                     width: parent.width
                     spacing: 8
-                    Label { text: "Currently active:"; opacity: 0.7 }
+                    Label { text: "Ativo no momento:"; opacity: 0.7 }
                     Label {
                         text: backend ? page.providerLabel(backend.activeProvider()) : ""
                         font.bold: true
@@ -232,7 +232,7 @@ Page {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 4
-                            Label { text: "From (source)"; font.bold: true }
+                            Label { text: "De (origem)"; font.bold: true }
                             ComboBox {
                                 id: sourceCombo
                                 Layout.fillWidth: true
@@ -251,7 +251,7 @@ Page {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 4
-                            Label { text: "To (destination)"; font.bold: true }
+                            Label { text: "Para (destino)"; font.bold: true }
                             ComboBox {
                                 id: destCombo
                                 Layout.fillWidth: true
@@ -279,7 +279,7 @@ Page {
                 visible: page.scanning
                 spacing: 8
                 BusyIndicator { running: page.scanning; implicitWidth: 24; implicitHeight: 24 }
-                Label { text: "Scanning " + page.providerLabel(page.srcKey()) + "..."; opacity: 0.7 }
+                Label { text: "Varrendo " + page.providerLabel(page.srcKey()) + "..."; opacity: 0.7 }
             }
 
             // Source apps header.
@@ -291,8 +291,8 @@ Page {
                 wrapMode: Text.WordWrap
                 text: {
                     var n = page.accountCount()
-                    var base = page.sourceApps.length + " game(s) on " + page.providerLabel(page.srcKey())
-                    if (n > 1) base = page.sourceApps.length + " game(s) across " + n + " accounts on " + page.providerLabel(page.srcKey())
+                    var base = page.sourceApps.length + " jogo(s) em " + page.providerLabel(page.srcKey())
+                    if (n > 1) base = page.sourceApps.length + " jogo(s) em " + n + " contas no " + page.providerLabel(page.srcKey())
                     return base + ":"
                 }
                 font.bold: true
@@ -366,7 +366,7 @@ Page {
                                 }
                                 Label {
                                     text: "ID: " + modelData.appId
-                                        + (modelData.accountId ? "  \u2022  Account: " + modelData.accountId : "")
+                                        + (modelData.accountId ? "  \u2022  Conta: " + modelData.accountId : "")
                                     opacity: 0.7
                                 }
                             }
@@ -388,7 +388,7 @@ Page {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Start Migration"
+                    text: "Iniciar migração"
                     highlighted: true
                     enabled: !page.scanning && page.sourceApps.length > 0 && page.srcKey() !== page.dstKey()
                     onClicked: page.beginMigration()
@@ -440,7 +440,7 @@ Page {
         Item { Layout.fillHeight: true }
 
         Button {
-            text: page.cancelling ? "Cancelling..." : "Cancel"
+            text: page.cancelling ? "Cancelando..." : "Cancelar"
             enabled: !page.cancelling
             Layout.alignment: Qt.AlignHCenter
             onClicked: {
@@ -493,10 +493,10 @@ Page {
                 Label {
                     text: {
                         var p = resultLayout
-                        if (p.cancelled) return "Migration cancelled"
-                        if (p.hasError) return "Migration failed"
-                        if (p.hasFailed) return "Completed with errors"
-                        return "Migration complete"
+                        if (p.cancelled) return "Migração cancelada"
+                        if (p.hasError) return "A migração falhou"
+                        if (p.hasFailed) return "Concluída com erros"
+                        return "Migração concluída"
                     }
                     font.pointSize: 14
                     font.bold: true
@@ -509,14 +509,14 @@ Page {
                         var p = resultLayout
                         var r = p.r
                         if (p.cancelled)
-                            return "Cancelled after migrating " + (r.migrated ? r.migrated : 0) + " file(s)."
+                            return "Cancelada após migrar " + (r.migrated ? r.migrated : 0) + " arquivo(s)."
                         if (p.hasError)
                             return r.error
-                        var s = "Migrated: " + (r.migrated ? r.migrated : 0)
-                              + "  |  Skipped: " + (r.skipped ? r.skipped : 0)
-                        if (p.hasFailed) s += "  |  Failed: " + r.failed
-                        s += "\nTotal transferred: " + page.formatBytes(r.totalBytes ? r.totalBytes : 0)
-                        if (p.hasFailed && r.lastError) s += "\nLast error: " + r.lastError
+                        var s = "Migrados: " + (r.migrated ? r.migrated : 0)
+                              + "  |  Ignorados: " + (r.skipped ? r.skipped : 0)
+                        if (p.hasFailed) s += "  |  Falharam: " + r.failed
+                        s += "\nTotal transferido: " + page.formatBytes(r.totalBytes ? r.totalBytes : 0)
+                        if (p.hasFailed && r.lastError) s += "\nÚltimo erro: " + r.lastError
                         return s
                     }
                 }
@@ -526,7 +526,7 @@ Page {
                     wrapMode: Text.WordWrap
                     visible: resultLayout.r.switched === true
                     opacity: 0.85
-                    text: "Now using " + page.providerLabel(page.dstKey()) + " as your active provider."
+                    text: "Agora usando " + page.providerLabel(page.dstKey()) + " como seu provedor ativo."
                 }
             }
         }
@@ -538,13 +538,13 @@ Page {
             Item { Layout.fillWidth: true }
 
             Button {
-                text: "Retry"
+                text: "Tentar de novo"
                 visible: resultLayout.hasFailed && !resultLayout.hasError
                 onClicked: page.beginMigration()
             }
 
             Button {
-                text: "Back"
+                text: "Voltar"
                 highlighted: true
                 onClicked: {
                     page.phase = "config"
@@ -565,12 +565,12 @@ Page {
         // Light pre-flight credential checks (CLI does the real auth test).
         var s = backend.checkProviderCredentials(src)
         if (!s.ok) {
-            setValidation("Source (" + providerLabel(src) + "): " + s.message, true)
+            setValidation("Origem (" + providerLabel(src) + "): " + s.message, true)
             return
         }
         var d = backend.checkProviderCredentials(dst)
         if (!d.ok) {
-            setValidation("Destination (" + providerLabel(dst) + "): " + d.message, true)
+            setValidation("Destino (" + providerLabel(dst) + "): " + d.message, true)
             return
         }
 
@@ -578,7 +578,7 @@ Page {
         indeterminate = true
         progDone = 0
         progTotal = 0
-        progStatus = "Starting..."
+        progStatus = "Iniciando..."
         progDetail = ""
         cancelling = false
         lastResult = null

@@ -201,17 +201,17 @@ void Deployer::checkPrerequisites()
     }
 
     if (!m_slssteamInstalled) {
-        m_statusMessage = "SLSsteam is not installed. Please install SLSsteam first.";
+        m_statusMessage = "O SLSsteam não está instalado. Instale o SLSsteam primeiro.";
     } else if (!m_headcrabInstalled) {
-        m_statusMessage = "h3adcr-b not installed. Did you run h3adcr-b first?";
+        m_statusMessage = "O h3adcr-b não está instalado. Você executou o h3adcr-b antes?";
     } else if (m_updateAvailable) {
-        m_statusMessage = "Update available. A newer version is bundled with this app.";
+        m_statusMessage = "Atualização disponível. Uma versão mais nova está incluída neste aplicativo.";
     } else if (m_alreadyDeployed) {
-        m_statusMessage = "CloudRedirect is deployed and active.";
+        m_statusMessage = "O CloudRedirect está instalado e ativo.";
     } else if (m_soSourcePath.isEmpty()) {
-        m_statusMessage = "cloud_redirect.so not found. Installation may be corrupted.";
+        m_statusMessage = "cloud_redirect.so não encontrado. A instalação pode estar corrompida.";
     } else {
-        m_statusMessage = "Ready to deploy.";
+        m_statusMessage = "Pronto para instalar.";
     }
 
     emit checkCompleted();
@@ -221,28 +221,28 @@ void Deployer::checkPrerequisites()
 bool Deployer::deploy()
 {
     if (!m_slssteamInstalled) {
-        m_statusMessage = "Cannot deploy: SLSsteam is not installed.";
+        m_statusMessage = "Não é possível instalar: o SLSsteam não está instalado.";
         emit statusMessageChanged();
         emit deployCompleted(false);
         return false;
     }
 
     if (!m_headcrabInstalled) {
-        m_statusMessage = "Failed to deploy. Did you run h3adcr-b first?";
+        m_statusMessage = "Falha ao instalar. Você executou o h3adcr-b antes?";
         emit statusMessageChanged();
         emit deployCompleted(false);
         return false;
     }
 
     if (m_soSourcePath.isEmpty()) {
-        m_statusMessage = "Cannot deploy: cloud_redirect.so not found. Installation may be corrupted.";
+        m_statusMessage = "Não é possível instalar: cloud_redirect.so não encontrado. A instalação pode estar corrompida.";
         emit statusMessageChanged();
         emit deployCompleted(false);
         return false;
     }
 
     if (!isElf32Bit(m_soSourcePath)) {
-        m_statusMessage = "Cannot deploy: cloud_redirect.so is not 32-bit, your compile is bad.";
+        m_statusMessage = "Não é possível instalar: cloud_redirect.so não é 32-bit, sua compilação está ruim.";
         emit statusMessageChanged();
         emit deployCompleted(false);
         return false;
@@ -253,7 +253,7 @@ bool Deployer::deploy()
 
     if (QFile::exists(m_soDeployPath)) {
         if (!QFile::remove(m_soDeployPath)) {
-            m_statusMessage = "Failed to remove existing " + m_soDeployPath + " (file may be in use by Steam)";
+            m_statusMessage = "Falha ao remover " + m_soDeployPath + " (o arquivo pode estar em uso pela Steam)";
             emit statusMessageChanged();
             emit deployCompleted(false);
             return false;
@@ -261,7 +261,7 @@ bool Deployer::deploy()
     }
 
     if (!QFile::copy(m_soSourcePath, m_soDeployPath)) {
-        m_statusMessage = "Failed to copy cloud_redirect.so to " + m_soDeployPath;
+        m_statusMessage = "Falha ao copiar cloud_redirect.so para " + m_soDeployPath;
         emit statusMessageChanged();
         emit deployCompleted(false);
         return false;
@@ -290,7 +290,7 @@ bool Deployer::deploy()
     QDir().mkpath(configDir);
 
     m_alreadyDeployed = true;
-    m_statusMessage = "CloudRedirect deployed to " + crDir + ". Restart Steam to activate.";
+    m_statusMessage = "CloudRedirect instalado em " + crDir + ". Reinicie a Steam para ativar.";
     emit statusMessageChanged();
     emit checkCompleted();
     emit deployCompleted(true);
@@ -300,13 +300,13 @@ bool Deployer::deploy()
 bool Deployer::update()
 {
     if (m_soSourcePath.isEmpty()) {
-        m_statusMessage = "No bundled .so found to update from.";
+        m_statusMessage = "Nenhum .so incluído encontrado para atualizar.";
         emit statusMessageChanged();
         return false;
     }
 
     if (!isElf32Bit(m_soSourcePath)) {
-        m_statusMessage = "Cannot update: cloud_redirect.so is not 32-bit, your compile is bad.";
+        m_statusMessage = "Não é possível atualizar: cloud_redirect.so não é 32-bit, sua compilação está ruim.";
         emit statusMessageChanged();
         return false;
     }
@@ -316,14 +316,14 @@ bool Deployer::update()
 
     if (QFile::exists(m_soDeployPath)) {
         if (!QFile::remove(m_soDeployPath)) {
-            m_statusMessage = "Cannot update: existing cloud_redirect.so is in use. Close Steam first.";
+            m_statusMessage = "Não é possível atualizar: o cloud_redirect.so existente está em uso. Feche a Steam primeiro.";
             emit statusMessageChanged();
             return false;
         }
     }
 
     if (!QFile::copy(m_soSourcePath, m_soDeployPath)) {
-        m_statusMessage = "Failed to update cloud_redirect.so";
+        m_statusMessage = "Falha ao atualizar cloud_redirect.so";
         emit statusMessageChanged();
         return false;
     }
@@ -344,7 +344,7 @@ bool Deployer::update()
     }
 
     m_updateAvailable = false;
-    m_statusMessage = "Updated successfully. Restart Steam to use the new version.";
+    m_statusMessage = "Atualizado com sucesso. Reinicie a Steam para usar a nova versão.";
     emit statusMessageChanged();
     emit checkCompleted();
     return true;
@@ -358,7 +358,7 @@ bool Deployer::undeploy()
         QFile::remove(m_cliDeployPath);
 
     m_alreadyDeployed = false;
-    m_statusMessage = "CloudRedirect removed. Restart Steam to deactivate.";
+    m_statusMessage = "CloudRedirect removido. Reinicie a Steam para desativar.";
     emit statusMessageChanged();
     emit checkCompleted();
     return true;
@@ -380,7 +380,7 @@ bool Deployer::purgeAll()
         dataQDir.removeRecursively();
     }
 
-    m_statusMessage = "All CloudRedirect data has been removed.";
+    m_statusMessage = "Todos os dados do CloudRedirect foram removidos.";
     emit statusMessageChanged();
     emit checkCompleted();
     return true;

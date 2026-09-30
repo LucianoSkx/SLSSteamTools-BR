@@ -4,15 +4,15 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 
 Page {
-    title: "Cloud Provider"
+    title: "Provedor de nuvem"
 
     property var providers: [
-        { value: "local", name: "Local Storage", desc: "Saves stored in Steam directory only. No cloud sync." },
-        { value: "folder", name: "Custom Folder", desc: "Sync to a network share or other local path." },
-        { value: "gdrive", name: "Google Drive", desc: "Sync saves to your Google Drive account." },
-        { value: "onedrive", name: "OneDrive", desc: "Sync saves to your Microsoft OneDrive account." },
-        { value: "r2", name: "Cloudflare R2", desc: "Sync saves to a Cloudflare R2 bucket (S3-compatible)." },
-        { value: "s3", name: "S3 Compatible", desc: "Sync saves to any S3-compatible service (AWS S3, MinIO, Backblaze B2, Wasabi, self-hosted)." }
+        { value: "local", name: "Armazenamento local", desc: "Saves guardados apenas no diretório da Steam. Sem sincronização na nuvem." },
+        { value: "folder", name: "Pasta personalizada", desc: "Sincroniza com um compartilhamento de rede ou outro caminho local." },
+        { value: "gdrive", name: "Google Drive", desc: "Sincroniza os saves com a sua conta do Google Drive." },
+        { value: "onedrive", name: "OneDrive", desc: "Sincroniza os saves com a sua conta do Microsoft OneDrive." },
+        { value: "r2", name: "Cloudflare R2", desc: "Sincroniza os saves com um bucket do Cloudflare R2 (compatível com S3)." },
+        { value: "s3", name: "S3 Compatible", desc: "Sincroniza os saves com qualquer serviço compatível com S3 (AWS S3, MinIO, Backblaze B2, Wasabi, auto-hospedado)." }
     ]
 
     property bool comboReady: false
@@ -86,7 +86,7 @@ Page {
 
     FolderDialog {
         id: folderDialog
-        title: "Select Sync Folder"
+        title: "Selecionar pasta de sincronização"
         onAccepted: {
             // Convert file:// URL to path
             var path = selectedFolder.toString()
@@ -104,17 +104,17 @@ Page {
             authUrlBox.visible = false
         }
         function onAuthSucceeded(provider) {
-            statusText.text = "Authentication successful!"
+            statusText.text = "Autenticação bem-sucedida!"
             authUrlBox.visible = false
             backend.refreshStatus()
             refreshAuthState()
         }
         function onAuthFailed(provider, error) {
-            statusText.text = "Error: " + error
+            statusText.text = "Erro: " + error
             authUrlBox.visible = false
         }
         function onBrowserFailed(url) {
-            statusText.text = "Could not open browser. Copy the URL below and paste it in your browser:"
+            statusText.text = "Não foi possível abrir o navegador. Copie a URL abaixo e cole no seu navegador:"
             authUrlField.text = url
             authUrlBox.visible = true
         }
@@ -135,13 +135,13 @@ Page {
         function onProviderTestFinished(provider, ok, error) {
             saving = false
             if (ok) {
-                statusText.text = "Connected. Credentials saved."
+                statusText.text = "Conectado. Credenciais salvas."
                 backend.saveConfig()
                 refreshAuthState()
                 if (provider === "s3") loadS3Form()
                 else if (provider === "r2") loadR2Form()
             } else {
-                statusText.text = "Error: " + error
+                statusText.text = "Erro: " + error
             }
         }
     }
@@ -157,14 +157,14 @@ Page {
             Item { height: 8 }
 
             Label {
-                text: "Cloud Provider"
+                text: "Provedor de nuvem"
                 font.pointSize: 16
                 font.bold: true
                 Layout.leftMargin: 20
             }
 
             Label {
-                text: "Choose where CloudRedirect syncs your save files."
+                text: "Escolha onde o CloudRedirect sincroniza seus arquivos de save."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -182,7 +182,7 @@ Page {
                     spacing: 8
 
                     Label {
-                        text: "Provider"
+                        text: "Provedor"
                         font.bold: true
                     }
 
@@ -229,14 +229,14 @@ Page {
                             var provider = currentProvider()
                             if (provider.value === "folder") {
                                 if (backend && backend.syncFolderPath)
-                                    return "Syncing to " + backend.syncFolderPath
-                                return "No folder configured"
+                                    return "Sincronizando com " + backend.syncFolderPath
+                                return "Nenhuma pasta configurada"
                             }
-                            if (provider.value === "gdrive" && gdriveAuth) return "Authenticated"
-                            if (provider.value === "onedrive" && onedriveAuth) return "Authenticated"
-                            if (provider.value === "r2") return r2Auth ? "Credentials saved" : "No credentials saved"
-                            if (provider.value === "s3") return s3Auth ? "Credentials saved" : "No credentials saved"
-                            return "Not authenticated"
+                            if (provider.value === "gdrive" && gdriveAuth) return "Autenticado"
+                            if (provider.value === "onedrive" && onedriveAuth) return "Autenticado"
+                            if (provider.value === "r2") return r2Auth ? "Credenciais salvas" : "Nenhuma credencial salva"
+                            if (provider.value === "s3") return s3Auth ? "Credenciais salvas" : "Nenhuma credencial salva"
+                            return "Não autenticado"
                         }
                         opacity: 0.7
                         wrapMode: Text.WordWrap
@@ -256,7 +256,7 @@ Page {
                     spacing: 8
 
                     Label {
-                        text: "Sync Folder"
+                        text: "Pasta de sincronização"
                         font.bold: true
                     }
 
@@ -273,13 +273,13 @@ Page {
                         }
 
                         Button {
-                            text: "Browse..."
+                            text: "Procurar..."
                             onClicked: folderDialog.open()
                         }
                     }
 
                     Label {
-                        text: "Choose a folder on a network share, external drive, or cloud-synced directory (e.g., Dropbox, Syncthing)."
+                        text: "Escolha uma pasta em um compartilhamento de rede, um disco externo ou um diretório sincronizado pela nuvem (ex.: Dropbox, Syncthing)."
                         opacity: 0.6
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -303,12 +303,12 @@ Page {
                     spacing: 12
 
                     Label {
-                        text: "Cloudflare R2 Credentials"
+                        text: "Credenciais do Cloudflare R2"
                         font.bold: true
                     }
                     Label {
-                        text: "Create an R2 bucket on your Cloudflare Dashboard. Generate tokens, enter them here. "
-                            + "Credentials entered here are stored in r2_credentials.json"
+                        text: "Crie um bucket R2 no painel do Cloudflare. Gere os tokens e informe-os aqui. "
+                            + "As credenciais informadas aqui ficam salvas em r2_credentials.json"
                         opacity: 0.6
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -345,8 +345,8 @@ Page {
                             Layout.fillWidth: true
                             echoMode: TextInput.Password
                             placeholderText: r2HasSecret
-                                ? "(unchanged - leave blank to keep existing)"
-                                : "R2 secret access key"
+                                ? "(inalterado — deixe em branco para manter o atual)"
+                                : "chave de acesso secreta do R2"
                         }
                     }
 
@@ -357,14 +357,14 @@ Page {
                         TextField {
                             id: r2BucketField
                             Layout.fillWidth: true
-                            placeholderText: "bucket name"
+                            placeholderText: "nome do bucket"
                         }
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Key Prefix (optional)"; opacity: 0.8 }
+                        Label { text: "Key Prefix (opcional)"; opacity: 0.8 }
                         TextField {
                             id: r2KeyPrefixField
                             Layout.fillWidth: true
@@ -375,7 +375,7 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Endpoint (optional)"; opacity: 0.8 }
+                        Label { text: "Endpoint (opcional)"; opacity: 0.8 }
                         TextField {
                             id: r2EndpointField
                             Layout.fillWidth: true
@@ -401,11 +401,11 @@ Page {
                     spacing: 12
 
                     Label {
-                        text: "S3 Compatible Credentials"
+                        text: "Credenciais de serviço compatível com S3"
                         font.bold: true
                     }
                     Label {
-                        text: "Add your S3 compatible provider"
+                        text: "Adicione seu provedor compatível com S3"
                         opacity: 0.6
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -429,7 +429,7 @@ Page {
                         TextField {
                             id: s3AccessKeyField
                             Layout.fillWidth: true
-                            placeholderText: "access key id"
+                            placeholderText: "id da chave de acesso"
                         }
                     }
 
@@ -442,8 +442,8 @@ Page {
                             Layout.fillWidth: true
                             echoMode: TextInput.Password
                             placeholderText: s3HasSecret
-                                ? "(unchanged - leave blank to keep existing)"
-                                : "secret access key"
+                                ? "(inalterado — deixe em branco para manter o atual)"
+                                : "chave de acesso secreta"
                         }
                     }
 
@@ -454,7 +454,7 @@ Page {
                         TextField {
                             id: s3BucketField
                             Layout.fillWidth: true
-                            placeholderText: "bucket name"
+                            placeholderText: "nome do bucket"
                         }
                     }
 
@@ -472,7 +472,7 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "Key Prefix (optional)"; opacity: 0.8 }
+                        Label { text: "Key Prefix (opcional)"; opacity: 0.8 }
                         TextField {
                             id: s3KeyPrefixField
                             Layout.fillWidth: true
@@ -482,32 +482,32 @@ Page {
 
                     // ── Advanced: transport + signing options for self-hosted servers ──
                     Label {
-                        text: "Advanced"
+                        text: "Avançado"
                         font.bold: true
                         Layout.topMargin: 4
                     }
 
                     CheckBox {
                         id: s3SignPayloadCheck
-                        text: "Sign request payloads (SHA-256 body hash)"
+                        text: "Assinar o corpo das requisições (hash SHA-256 do body)"
                     }
                     CheckBox {
                         id: s3InsecureHttpCheck
-                        text: "Allow plain HTTP endpoints (insecure)"
+                        text: "Permitir endpoints HTTP sem TLS (inseguro)"
                     }
                     CheckBox {
                         id: s3InsecureTlsCheck
-                        text: "Skip TLS certificate verification (insecure)"
+                        text: "Ignorar a verificação do certificado TLS (inseguro)"
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-                        Label { text: "CA Certificate Path (optional)"; opacity: 0.8 }
+                        Label { text: "Caminho do certificado CA (opcional)"; opacity: 0.8 }
                         TextField {
                             id: s3CaCertField
                             Layout.fillWidth: true
-                            placeholderText: "e.g. /path/to/ca.pem for a self-signed server"
+                            placeholderText: "ex.: /caminho/ca.pem para um servidor com certificado autoassinado"
                         }
                     }
 
@@ -517,7 +517,7 @@ Page {
             Button {
                 visible: currentProvider().value === "gdrive"
                 Layout.leftMargin: 20
-                text: gdriveAuth ? "Re-authenticate" : "Sign in with Google"
+                text: gdriveAuth ? "Autenticar novamente" : "Entrar com Google"
                 highlighted: !gdriveAuth
                 onClicked: {
                     if (backend && oauth) {
@@ -530,7 +530,7 @@ Page {
             Button {
                 visible: currentProvider().value === "onedrive"
                 Layout.leftMargin: 20
-                text: onedriveAuth ? "Re-authenticate" : "Sign in with Microsoft"
+                text: onedriveAuth ? "Autenticar novamente" : "Entrar com Microsoft"
                 highlighted: !onedriveAuth
                 onClicked: {
                     if (backend && oauth) {
@@ -568,7 +568,7 @@ Page {
                 }
 
                 Button {
-                    text: "Copy"
+                    text: "Copiar"
                     onClicked: {
                         authUrlField.selectAll()
                         authUrlField.copy()
@@ -586,14 +586,14 @@ Page {
                 Layout.bottomMargin: 12
 
                 Label {
-                    text: "Changes take effect on next Steam launch."
+                    text: "As alterações valem a partir do próximo início da Steam."
                     opacity: 0.6
                 }
 
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: saving ? "Testing connection..." : "Save"
+                    text: saving ? "Testando conexão..." : "Salvar"
                     highlighted: true
                     enabled: !saving
                     onClicked: {
@@ -613,12 +613,12 @@ Page {
                                 s3InsecureTlsCheck.checked,
                                 s3CaCertField.text)
                             if (!okS3) {
-                                statusText.text = "Error: Access Key ID, Secret Access Key, "
-                                    + "Bucket, Endpoint and Region are required."
+                                statusText.text = "Erro: Access Key ID, Secret Access Key, "
+                                    + "Bucket, Endpoint e Region são obrigatórios."
                                 return
                             }
                             // Verify the endpoint actually works before committing.
-                            statusText.text = "Testing connection..."
+                            statusText.text = "Testando conexão..."
                             saving = true
                             backend.testProviderConnection("s3")
                             return
@@ -633,11 +633,11 @@ Page {
                                 r2KeyPrefixField.text,
                                 r2EndpointField.text)
                             if (!okR2) {
-                                statusText.text = "Error: Account ID, Access Key ID, "
-                                    + "Bucket and Secret Access Key are required."
+                                statusText.text = "Erro: Account ID, Access Key ID, "
+                                    + "Bucket e Secret Access Key são obrigatórios."
                                 return
                             }
-                            statusText.text = "Testing connection..."
+                            statusText.text = "Testando conexão..."
                             saving = true
                             backend.testProviderConnection("r2")
                             return
@@ -645,7 +645,7 @@ Page {
 
                         // Non-credential providers just persist config.
                         backend.saveConfig()
-                        statusText.text = "Saved."
+                        statusText.text = "Salvo."
                     }
                 }
             }

@@ -48,7 +48,7 @@ ApplicationWindow {
 
     Dialog {
         id: updateAvailableDialog
-        title: "Update Available"
+        title: "Atualização disponível"
         modal: true
         standardButtons: Dialog.NoButton
         anchors.centerIn: parent
@@ -59,14 +59,14 @@ ApplicationWindow {
             spacing: 10
 
             Label {
-                text: "A new version of CloudRedirect is available."
+                text: "Uma nova versão do CloudRedirect está disponível."
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
 
             Label {
-                text: "Update now to get the latest features and fixes."
+                text: "Atualize agora para obter as novidades e as correções mais recentes."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 opacity: 0.7
@@ -79,12 +79,12 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Later"
+                    text: "Mais tarde"
                     onClicked: updateAvailableDialog.close()
                 }
 
                 Button {
-                    text: "Update Now"
+                    text: "Atualizar agora"
                     highlighted: true
                     onClicked: {
                         if (backend) backend.applyFlatpakUpdate()
@@ -97,14 +97,14 @@ ApplicationWindow {
 
     Dialog {
         id: restartDialog
-        title: "Restart Required"
+        title: "Reinício necessário"
         modal: true
         standardButtons: Dialog.Ok
         anchors.centerIn: parent
         width: Math.min(parent.width - 80, 440)
 
         Label {
-            text: "CloudRedirect has been updated. Please restart the application to use the new version."
+            text: "O CloudRedirect foi atualizado. Reinicie o aplicativo para usar a nova versão."
             wrapMode: Text.WordWrap
             width: parent.width
         }
@@ -112,7 +112,7 @@ ApplicationWindow {
 
     Dialog {
         id: autoUpdateDialog
-        title: "Enable Automatic Updates"
+        title: "Ativar atualizações automáticas"
         modal: true
         standardButtons: Dialog.NoButton
         anchors.centerIn: parent
@@ -123,14 +123,14 @@ ApplicationWindow {
             spacing: 10
 
             Label {
-                text: "Would you like to receive automatic updates?"
+                text: "Deseja receber atualizações automáticas?"
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
 
             Label {
-                text: "CloudRedirect can add its update repository so new versions are installed automatically via Flatpak. You can remove it later from Settings."
+                text: "O CloudRedirect pode adicionar o repositório de atualizações para que novas versões sejam instaladas automaticamente via Flatpak. Você pode removê-lo depois nas Configurações."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 opacity: 0.7
@@ -143,7 +143,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Not Now"
+                    text: "Agora não"
                     onClicked: {
                         if (backend) backend.dismissAutoUpdatePrompt()
                         autoUpdateDialog.close()
@@ -151,7 +151,7 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: "Enable Updates"
+                    text: "Ativar atualizações"
                     highlighted: true
                     onClicked: {
                         if (backend) backend.enableAutoUpdates()
@@ -171,13 +171,13 @@ ApplicationWindow {
             Layout.fillWidth: true
 
             // Size each tab to its label so wider labels aren't truncated.
-            TabButton { text: "Dashboard";      width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Apps";           width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            TabButton { text: "Painel";        width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            TabButton { text: "Aplicativos";   width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
             TabButton { text: "Backups";        width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Cloud Provider"; width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Setup";          width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Stats Sync";     width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Migration";      width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            TabButton { text: "Provedor";      width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            TabButton { text: "Instalação";    width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            TabButton { text: "Estatísticas";  width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            TabButton { text: "Migração";      width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
         }
 
         StackLayout {

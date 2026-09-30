@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Page {
-    title: "Dashboard"
+    title: "Painel"
     
     // Track auth state locally so bindings update
     property bool providerAuth: backend ? backend.providerAuthenticated : false
@@ -44,7 +44,7 @@ Page {
             Item { height: 8 }
 
             Label {
-                text: "Dashboard"
+                text: "Painel"
                 font.pointSize: 16
                 font.bold: true
                 Layout.leftMargin: 20
@@ -57,7 +57,7 @@ Page {
             }
 
             Label {
-                text: "Welcome!"
+                text: "Bem-vindo!"
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -75,16 +75,16 @@ Page {
                     spacing: 4
 
                     Label {
-                        text: "Cloud Provider"
+                        text: "Provedor de nuvem"
                         font.bold: true
                     }
                     Label {
                         text: {
                             if (!backend || !backend.providerName || backend.providerName === "local")
-                                return "Not configured"
+                                return "Não configurado"
                             if (providerAuth)
-                                return formatProviderName(backend.providerName) + " — Authenticated"
-                            return formatProviderName(backend.providerName) + " — Not authenticated"
+                                return formatProviderName(backend.providerName) + " — Autenticado"
+                            return formatProviderName(backend.providerName) + " — Não autenticado"
                         }
                         opacity: 0.7
                     }
@@ -101,7 +101,7 @@ Page {
                     spacing: 4
 
                     Label {
-                        text: "Apps Syncing"
+                        text: "Apps sincronizados"
                         font.bold: true
                     }
                     Label {
@@ -109,8 +109,8 @@ Page {
                             var local = backend ? backend.managedAppCount : 0
                             var remoteOnly = backend ? backend.remoteOnlyAppCount : 0
                             if (remoteOnly > 0)
-                                return local + " local, " + remoteOnly + " remote only"
-                            return local + " app(s) with cloud data"
+                                return local + " local, " + remoteOnly + " apenas na nuvem"
+                            return local + " app(s) com dados na nuvem"
                         }
                         opacity: 0.7
                     }
@@ -131,7 +131,7 @@ Page {
                         font.bold: true
                     }
                     Label {
-                        text: (backend && backend.deployed) ? "Installed" : "Not installed"
+                        text: (backend && backend.deployed) ? "Instalado" : "Não instalado"
                         opacity: 0.7
                     }
                 }
@@ -151,11 +151,11 @@ Page {
                         spacing: 2
 
                         Label {
-                            text: "Launch Notifications"
+                            text: "Notificações ao iniciar"
                             font.bold: true
                         }
                         Label {
-                            text: "Show a desktop notification when CloudRedirect loads"
+                            text: "Mostrar uma notificação na área de trabalho quando o CloudRedirect carregar"
                             opacity: 0.7
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
@@ -174,12 +174,12 @@ Page {
                 spacing: 8
 
                 Button {
-                    text: "Open Log File"
+                    text: "Abrir arquivo de log"
                     onClicked: { if (backend) backend.openLogFile() }
                 }
 
                 Button {
-                    text: "Open Config Folder"
+                    text: "Abrir pasta de configuração"
                     onClicked: { if (backend) backend.openConfigFolder() }
                 }
             }
