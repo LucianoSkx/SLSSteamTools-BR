@@ -54,9 +54,6 @@ curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bas
 Baixa o AppImage, cria a entrada de menu e o ícone. Precisa de `libfuse2`
 funcionando, senão o AppImage não abre.
 
-O app sai em inglês. A tradução pt-BR que existia era de um fork que foi
-deletado, e não foi reconstruída aqui.
-
 ### 2. SLSsteam + CloudRedirect
 
 Esses dois vêm juntos, num instalador só: eles não funcionam separados. O
