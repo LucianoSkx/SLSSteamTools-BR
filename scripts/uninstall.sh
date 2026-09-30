@@ -6,7 +6,6 @@ FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
 
 DIR_DADOS="$HOME/.local/share"
 DIR_APPS="$DIR_DADOS/applications"
-DIR_ICONS="$DIR_DADOS/icons/hicolor/256x256/apps"
 DIR_SLS="$DIR_DADOS/SLSsteam"
 DIR_CR="$DIR_DADOS/CloudRedirect"
 
@@ -97,7 +96,12 @@ main() {
 
     titulo "1/3  CloudRedirect"
     rm -f "$DIR_APPS/cloudredirect.desktop"
-    rm -f "$DIR_ICONS/cloudredirect.png"
+    for tam in 16 24 32 48 64 128 256 512; do
+        rm -f "$DIR_DADOS/icons/hicolor/$tam/apps/cloudredirect.png"
+    done
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -f -t "$DIR_DADOS/icons/hicolor" 2>/dev/null || true
+    fi
     rm -rf "$DIR_CR"
     ok "interface, hook e CLI removidos de $DIR_CR"
     aviso "ficaram intactos: $HOME/.config/CloudRedirect (config, tokens, saves e backups)"

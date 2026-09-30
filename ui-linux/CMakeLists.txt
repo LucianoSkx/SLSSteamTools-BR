@@ -29,19 +29,7 @@ endif()
 if(CR_VERSION_OVERRIDE)
     set(CR_VERSION "${CR_RELEASE_VERSION}${CR_PRERELEASE}+${CR_VERSION_OVERRIDE}")
 else()
-    execute_process(
-        COMMAND git rev-parse --short=7 HEAD
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_SHA
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-        RESULT_VARIABLE GIT_RESULT
-    )
-    if(GIT_RESULT EQUAL 0)
-        set(CR_VERSION "${CR_RELEASE_VERSION}${CR_PRERELEASE}+${GIT_SHA}")
-    else()
-        set(CR_VERSION "${CR_RELEASE_VERSION}${CR_PRERELEASE}")
-    endif()
+    set(CR_VERSION "${CR_RELEASE_VERSION}${CR_PRERELEASE}")
 endif()
 message(STATUS "CloudRedirect UI version: ${CR_VERSION}")
 

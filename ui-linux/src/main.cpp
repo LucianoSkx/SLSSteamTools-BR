@@ -21,13 +21,13 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(CR_VERSION);
     
     // Set window icon: try theme first, fall back to embedded resource
-    QIcon appIcon = QIcon::fromTheme("org.cloudredirect.CloudRedirect");
+    QIcon appIcon = QIcon::fromTheme("cloudredirect");
     if (appIcon.isNull())
         appIcon = QIcon(":/icons/cloudredirect.png");
     app.setWindowIcon(appIcon);
-    
+
     // Set desktop filename for Wayland compositor window matching
-    app.setDesktopFileName("org.cloudredirect.CloudRedirect");
+    app.setDesktopFileName("cloudredirect");
 
     // Use Breeze style on KDE, fallback to Fusion
     if (QQuickStyle::name().isEmpty())
