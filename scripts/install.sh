@@ -220,6 +220,9 @@ liberar_cloud_no_sls() {
 instalar_slssteam() {
     titulo "SLSsteam (AceSLS/SLSsteam)"
 
+    # Delegamos a instalacao ao setup.sh oficial do pacote, como fazemos com o
+    # ASSella. Ele copia os .so, cria o wrapper path/steam e o steam.desktop
+    # com o LD_AUDIT ja embutido.
     if [ -f "$DIR_SLS/SLSsteam.so" ]; then
         ok "SLSsteam ja presente em $DIR_SLS"
     else
@@ -238,21 +241,28 @@ instalar_slssteam() {
                "$TMP/slssteam.7z"
 
         run_cmd "$SEVENZ" x -y "-o$TMP/sls" "$TMP/slssteam.7z"
-        [ -f "$TMP/sls/bin/SLSsteam.so" ] || die "o pacote do SLSsteam nao veio com bin/SLSsteam.so"
+        [ -f "$TMP/sls/setup.sh" ] || die "o pacote do SLSsteam nao veio com setup.sh"
 
-        mkdir -p "$DIR_SLS"
-        cp -a "$TMP/sls/bin/." "$DIR_SLS/"
-        chmod 755 "$DIR_SLS"/*.so 2>/dev/null || true
-        ok "SLSsteam $tag instalado em $DIR_SLS"
+        info "rodando o instalador oficial (setup.sh install)..."
+        # O setup.sh oficial usa caminhos relativos (./bin/SLSsteam.so), entao
+        # precisa rodar com o diretorio de trabalho dentro do pacote extraido.
+        # Ele ainda sai com codigo 0 mesmo falhando, por isso conferimos o .so.
+        mkdir -p "$HOME/.config/fish/conf.d" 2>/dev/null || true
+        ( cd "$TMP/sls" && bash ./setup.sh install ) || warn "o setup.sh oficial retornou erro"
+        [ -f "$DIR_SLS/SLSsteam.so" ] || die "o instalador oficial do SLSsteam nao instalou SLSsteam.so"
+        ok "SLSsteam $tag instalado pelo instalador oficial"
     fi
 
-    # O script oficial do SLSsteam so cria os wrappers no fish, entao em bash o
-    # LD_AUDIT nunca chegaria a ser exportado. O patch do steam.sh e nosso.
+    # O setup.sh oficial nao mexe no steam.sh: ele injeta o LD_AUDIT no wrapper
+    # path/steam e no .desktop. Quem chama a Steam direto (digitando "steam", ou
+    # via outro .desktop) nao passa por nenhum dos dois, entao garantimos o
+    # LD_AUDIT no steam.sh tambem. Respeitamos patch de outra ferramenta e
+    # mantemos o nosso proprio como rede de seguranca.
     local sh found=0
     for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
         if patch_steam "$sh"; then found=1; fi
     done
-    [ "$found" = 1 ] || warn "steam.sh nao encontrado; o SLSsteam so sera carregado se a Steam for iniciada por outro caminho"
+    [ "$found" = 1 ] || warn "steam.sh nao encontrado; o SLSsteam so sera carregado pelo wrapper e pelo .desktop do instalador oficial"
 
     liberar_cloud_no_sls "$DIR_CFG_SLS/config.yaml"
     ok "DisableCloud: no em $DIR_CFG_SLS/config.yaml"

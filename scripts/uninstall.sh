@@ -112,6 +112,10 @@ main() {
     despatch_steam "$HOME/.steam/steam/steam.sh"
     rm -f "$HOME/.local/share/Steam/steam.sh.slssteam.bak" \
           "$HOME/.steam/steam/steam.sh.slssteam.bak"
+    # Artefatos do instalador oficial: wrapper, .desktop e PATH do fish.
+    # O .desktop e o conf.d sao recriados pelo sistema, mas removemos os nossos.
+    rm -f "$DIR_APPS/steam.desktop" "$DIR_APPS/steam-native.desktop" \
+          "$HOME/.config/fish/conf.d/SLSsteam.fish"
     rm -rf "$DIR_SLS"
     ok "SLSsteam removido de $DIR_SLS"
     aviso "o config $HOME/.config/SLSsteam foi preservado"
