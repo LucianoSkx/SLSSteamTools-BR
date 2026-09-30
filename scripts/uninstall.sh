@@ -96,7 +96,7 @@ main() {
 
     titulo "1/3  CloudRedirect"
     rm -f "$DIR_APPS/cloudredirect.desktop"
-    for tam in 16 24 32 48 64 128 256 512; do
+    for tam in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
         rm -f "$DIR_DADOS/icons/hicolor/$tam/apps/cloudredirect.png"
     done
     if command -v gtk-update-icon-cache >/dev/null 2>&1; then

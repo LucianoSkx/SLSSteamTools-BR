@@ -268,10 +268,10 @@ instalar_cloudredirect() {
     ok "CloudRedirect implantado em $DIR_CR"
 
     mkdir -p "$DIR_ICONS"
-    for tam in 16 24 32 48 64 128 256 512; do
-        d="$DIR_DADOS/icons/hicolor/$tam"
-        mkdir -p "$d/apps"
-        install -m 644 "$FONTE/ui-linux/src/cloudredirect.png" "$d/apps/cloudredirect.png"
+    for tam in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
+        mkdir -p "$DIR_DADOS/icons/hicolor/$tam/apps"
+        install -m 644 "$FONTE/ui-linux/src/cloudredirect.png" \
+            "$DIR_DADOS/icons/hicolor/$tam/apps/cloudredirect.png"
     done
     if command -v gtk-update-icon-cache >/dev/null 2>&1; then
         run_cmd gtk-update-icon-cache -f -t "$DIR_DADOS/icons/hicolor" || true
