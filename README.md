@@ -78,10 +78,6 @@ CloudRedirect, o `config.yaml` do SLSsteam e o banco do ASSella continuam.
 | `~/.config/SLSsteam/config.yaml` | config do SLSsteam |
 | `~/.local/share/ACCELA/` | AppImage e dados do ASSella |
 
-> O app do ASSella grava em `ACCELA` (1 L). Se os dados estiverem em `ACCELLA`
-> (2 L, do fork pt-BR antigo), o instalador copia de um para o outro e
-> preserva a pasta antiga.
-
 ### Compilar o hook de 32 bits
 
 O `cloud_redirect.so` e a CLI já estão commitados no repositório e é isso que o
