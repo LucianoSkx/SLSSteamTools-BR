@@ -23,6 +23,9 @@ DIR_CR_SRC="$DIR_CR/src"
 # O app upstream grava em ACCELA (1 L): src/utils/settings.py, APP_NAME.
 DIR_ASSELLA="$DIR_DADOS/ACCELA"
 
+MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
+FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
+
 REPO_CR="https://github.com/LucianoSkx/cloudredirect-BR.git"
 ASSELLA_INSTALL_URL="https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh"
 CR_BRANCH="${CR_BRANCH:-master}"
@@ -137,16 +140,35 @@ install_deps() {
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Injeta o LD_AUDIT no steam.sh. O arquivo da Valve vem com modo 555, entao
-# precisa de chmod antes de escrita. E idempotente: o marcador impede o patch
-# dobrado, e um patch do h3adcr-b preexistente e reaproveitado.
+# precisa de chmod antes de escrita.
+#
+# Idempotencia e pelo nosso marcador, nao por "existe LD_AUDIT": o h3adcr-b
+# tambem patcheia o mesmo arquivo com o mesmo valor, e depender do patch de
+# outro faz o SLSsteam parar de funcionar junto com aquele desinstalador.
+# Os dois convivem: reexportar o mesmo valor nao muda nada.
 patch_steam() {
     local sh="$1"
     [ -f "$sh" ] || return 1
 
-    if grep -q 'SLSsteam\.so' "$sh" && grep -q 'LD_AUDIT' "$sh"; then
-        ok "steam.sh ja contem o patch do SLSsteam; preservado como esta"
-        return 0
+    if grep -q "$MARCADOR_SLS" "$sh"; then
+        ok "patch do instalador ja presente em $sh"
+    else
+        if grep -q 'LD_AUDIT' "$sh"; then
+            warn "$sh ja tem um patch de LD_AUDIT de outra ferramenta (provavelmente h3adcr-b)"
+            warn "  o patch do instalador sera escrito por cima; os dois usam o mesmo valor"
+        fi
+        injetar_steam "$sh"
     fi
+
+    # O h3adcr-b exporta de novo dentro de GameLauncher(), mais tarde. Mesmo
+    # valor, entao nao ha conflito; mas ele nao e nosso e pode sumir.
+    grep -q 'INJECT_SLS' "$sh" && \
+        warn "esse patch ainda depende do h3adcr-b em $sh; se remove-lo, rode o instalador de novo"
+    return 0
+}
+
+injetar_steam() {
+    local sh="$1"
 
     local modo bak tmp
     modo="$(stat -c '%a' "$sh")"
@@ -157,14 +179,14 @@ patch_steam() {
     {
         IFS= read -r primeira
         printf '%s\n' "$primeira"
+        printf '%s\n' "$MARCADOR_SLS"
         cat <<'INJ'
-# --- SLSsteam injetado pelo instalador do CloudRedirect ---
 _SLS_DIR="$HOME/.local/share/SLSsteam"
 if [ -f "$_SLS_DIR/library-inject.so" ] && [ -f "$_SLS_DIR/SLSsteam.so" ]; then
 	export LD_AUDIT="$_SLS_DIR/library-inject.so:$_SLS_DIR/SLSsteam.so"
 fi
-# --- fim da injecao SLSsteam ---
 INJ
+        printf '%s\n' "$FIM_MARCADOR_SLS"
         cat
     } < "$sh" > "$tmp"
 

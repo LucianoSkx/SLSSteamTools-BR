@@ -14,6 +14,8 @@ DIR_SLS="$DIR_DADOS/SLSsteam"
 DIR_CR="$DIR_DADOS/CloudRedirect"
 DIR_ASSELLA="$DIR_DADOS/ACCELA"
 ASSELLA_INSTALL_URL="https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh"
+MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
+FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -63,16 +65,16 @@ despatch_steam() {
     # Sem referencia ao SLSsteam: nada foi feito aqui.
     grep -q 'LD_AUDIT' "$sh" && grep -q 'SLSsteam\.so' "$sh" || return 0
 
-    if ! grep -q 'SLSsteam injetado pelo instalador do CloudRedirect' "$sh"; then
+    if ! grep -q "$MARCADOR_SLS" "$sh"; then
         aviso "$sh tem um patch do SLSsteam de outra ferramenta; preservado como esta"
         return 0
     fi
 
     local tmp modo; tmp="$(mktemp)"
     modo="$(stat -c '%a' "$sh")"
-    awk '
-        /^# --- SLSsteam injetado pelo instalador do CloudRedirect ---$/ { pulando=1; next }
-        /^# --- fim da injecao SLSsteam ---$/                     { pulando=0; next }
+    awk -v inicio="$MARCADOR_SLS" -v fim="$FIM_MARCADOR_SLS" '
+        $0 == inicio { pulando=1; next }
+        $0 == fim    { pulando=0; next }
         !pulando
     ' "$sh" > "$tmp"
 
