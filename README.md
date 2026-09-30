@@ -12,7 +12,8 @@ Um instalador que traz os três programas e cria as entradas de menu:
 
 - **SLSsteam** — do repositório oficial [AceSLS/SLSsteam](https://github.com/AceSLS/SLSsteam)
 - **CloudRedirect** — a GUI nativa desta fork, com a interface inteira em português
-- **ASSella** — do repositório oficial [niwia/ASSella](https://github.com/niwia/ASSella)
+- **ASSella** — pelo próprio instalador oficial dele,
+  `curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh`
 
 ```sh
 ./scripts/install.sh
@@ -37,8 +38,12 @@ O que ele faz:
 - compila a GUI desta fork com Qt6 e instala em `~/.local/share/CloudRedirect/app/`
 - implanta o `cloud_redirect.so` e a CLI, que é o mesmo que o botão **Instalar**
   da aba **Montagem** faz
-- baixa o AppImage do ASSella
-- cria as três entradas de menu e os ícones
+- cria a entrada de menu do CloudRedirect com o ícone
+- entrega o ASSella ao instalador oficial dele, que baixa o AppImage, cria a
+  entrada de menu e o ícone — e continua sendo ele quem atualiza isso depois
+
+O `ASSella` sai em inglês: a tradução pt-BR que existia era de um fork que foi
+deletado. O resto do conjunto é pt-BR.
 
 **Feche a Steam e abra de novo** depois de instalar: o `LD_AUDIT` só vale para
 processos novos.
@@ -50,8 +55,9 @@ processos novos.
 ```
 
 Remove os três programas, as entradas de menu e desfaz o patch do `steam.sh`.
-**Não apaga dados**: config e tokens do CloudRedirect, saves sincronizados,
-`config.yaml` do SLSsteam e o banco do ASSella continuam no lugar.
+O ASSella é desinstalado pelo instalador oficial dele. **Não apaga dados**:
+config e tokens do CloudRedirect, saves sincronizados, `config.yaml` do
+SLSsteam e o banco do ASSella continuam no lugar.
 
 ### O que fica onde
 
@@ -62,7 +68,7 @@ Remove os três programas, as entradas de menu e desfaz o patch do `steam.sh`.
 | `~/.config/CloudRedirect/` | config, tokens OAuth, cache |
 | `~/.local/share/SLSsteam/` | `SLSsteam.so` e `library-inject.so` |
 | `~/.config/SLSsteam/config.yaml` | config do SLSsteam |
-| `~/.local/share/ACCELA/` | AppImage e dados do ASSella |
+| `~/.local/share/ACCELA/` | AppImage e dados do ASSella (`ASSella.AppImage`) |
 
 > O app do ASSella grava em `ACCELA` (1 L). Se os dados estiverem em `ACCELLA`
 > (2 L, do fork pt-BR antigo), o instalador copia de um para o outro e

@@ -14,6 +14,9 @@ DIR_ICONS="$DIR_DADOS/icons/hicolor/256x256/apps"
 DIR_SLS="$DIR_DADOS/SLSsteam"
 DIR_CR="$DIR_DADOS/CloudRedirect"
 DIR_ASSELLA="$DIR_DADOS/ACCELA"
+ASSELLA_INSTALL_URL="https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
 ASSUMIR="${CR_UNINSTALL_ASSUME:-0}"
 VERBOSE="${VERBOSE:-0}"
@@ -117,10 +120,14 @@ main() {
     aviso "o config $HOME/.config/SLSsteam foi preservado"
 
     titulo "ASSella"
-    rm -f "$DIR_APPS/assella.desktop"
-    rm -f "$DIR_ICONS/assella.png"
-    rm -f "$DIR_ASSELLA/ASSella.AppImage"
-    rm -f "$DIR_ASSELLA/version"
+    # Quem instala o ASSella e o instalador oficial, quem desinstala tambem.
+    if curl -fsSL -o "$TMP/assella-install.sh" "$ASSELLA_INSTALL_URL" 2>/dev/null; then
+        bash "$TMP/assella-install.sh" --uninstall || aviso "o desinstalador do ASSella falhou"
+    else
+        rm -f "$DIR_APPS/accela.desktop" "$DIR_ICONS/accela.png" \
+              "$DIR_ASSELLA/ACCELA.AppImage" "$DIR_ASSELLA/ASSella.AppImage" \
+              "$DIR_ASSELLA/version"
+    fi
     ok "ASSella removido de $DIR_ASSELLA"
     aviso "o banco e os manifestos em $DIR_ASSELLA foram preservados"
 

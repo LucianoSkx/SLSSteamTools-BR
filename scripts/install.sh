@@ -24,7 +24,7 @@ DIR_ASSELLA="$DIR_DADOS/ACCELA"
 DIR_ASSELLA_ANTIGO="$DIR_DADOS/ACCELLA"
 
 REPO_CR="https://github.com/LucianoSkx/cloudredirect-BR.git"
-REPO_ASSELLA="niwia/ASSella"
+ASSELLA_INSTALL_URL="https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh"
 CR_BRANCH="${CR_BRANCH:-master}"
 
 SKIP_DEPS="${CR_INSTALL_SKIP_DEPS:-0}"
@@ -332,78 +332,36 @@ EOF
 #  ASSella
 # ─────────────────────────────────────────────────────────────────────────────
 
+# O app upstream grava em ACCELA (1 L). O fork pt-BR antigo gravava em ACCELLA
+# (2 L), entao os dados ficam em ACCELLA e sao copiados para ACCELA aqui. O
+# instalador oficial nao conhece esse caso.
 migrar_dados_assella() {
     [ -d "$DIR_ASSELLA_ANTIGO" ] || return 0
     if [ -d "$DIR_ASSELLA" ]; then
-        ok "dados ja estao em $DIR_ASSELLA (pasta antiga $DIR_ASSELLA_ANTIGO mantida)"
+        ok "dados ja estao em $DIR_ASSELLA (a pasta antiga $DIR_ASSELLA_ANTIGO foi mantida)"
         return 0
     fi
-    warn "migrando os dados de $DIR_ASSELLA_ANTIGO para $DIR_ASSELLA"
+    warn "os dados estao em $DIR_ASSELLA_ANTIGO (2 L), mas o app usa $DIR_ASSELLA (1 L)"
     mkdir -p "$DIR_ASSELLA"
     cp -a "$DIR_ASSELLA_ANTIGO/." "$DIR_ASSELLA/" || die "falha ao migrar os dados do ASSella"
     ok "dados copiados; a pasta antiga foi preservada em $DIR_ASSELLA_ANTIGO"
 }
 
+# Delegamos ao instalador oficial em vez de reimplementar: e ele que escolhe a
+# release, baixa o AppImage e cria o .desktop e o icone. Assim o caminho, a
+# versao e o ACCELA.AppImage.bak se mantem em dia junto com o upstream.
 instalar_assella() {
     titulo "ASSella (niwia/ASSella)"
 
-    info "consultando a ultima release..."
-    api_github "/repos/$REPO_ASSELLA/releases?per_page=10" "$TMP/assella-rel.json" \
-        || die "nao foi possivel consultar a API do GitHub"
-    tag="$(awk '
-        /"tag_name":/ { t=$0; sub(/.*"tag_name": *"/, "", t); sub(/".*/, "", t) }
-        /ASSella\.AppImage"/ { if (!p) { print t; p=1 } }
-    ' "$TMP/assella-rel.json")"
-    [ -n "$tag" ] || die "nao foi possivel achar uma release do ASSella com AppImage"
-    info "release: $tag"
-
-    url="https://github.com/$REPO_ASSELLA/releases/download/$tag/ASSella.AppImage"
-
-    if [ -x "$DIR_ASSELLA/ASSella.AppImage" ] && [ -f "$DIR_ASSELLA/version" ] \
-       && [ "$(cat "$DIR_ASSELLA/version")" = "$tag" ]; then
-        ok "ASSella $tag ja instalado; nada a baixar"
-        return 0
-    fi
-
     migrar_dados_assella
-    mkdir -p "$DIR_ASSELLA"
-    baixar "$url" "$DIR_ASSELLA/ASSella.AppImage"
-    chmod 755 "$DIR_ASSELLA/ASSella.AppImage"
-    printf '%s\n' "$tag" > "$DIR_ASSELLA/version"
-    ok "ASSella $tag instalado em $DIR_ASSELLA"
 
-    mkdir -p "$DIR_ICONS"
-    run_cmd curl -fL -o "$DIR_ICONS/assella.png" \
-        "https://raw.githubusercontent.com/$REPO_ASSELLA/main/src/res/logo/icon.png" \
-        || warn "nao foi possivel baixar o icone do ASSella"
+    info "rodando o instalador oficial..."
+    curl -fsSL -o "$TMP/assella-install.sh" "$ASSELLA_INSTALL_URL" \
+        || die "nao foi possivel baixar o instalador do ASSella"
+    bash "$TMP/assella-install.sh" --install \
+        || die "o instalador do ASSella falhou"
 
-    mkdir -p "$DIR_APPS"
-    # %u fica FORA das aspas: dentro delas o Plasma procura um arquivo chamado
-    # "ASSella.AppImage %u" e o app nao abre.
-    cat > "$DIR_APPS/assella.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=ASSella
-GenericName=Ferramentas de manifest e Lua
-Comment=Manifestos e scripts Lua para Steam
-Exec="$DIR_ASSELLA/ASSella.AppImage" %u
-Icon=assella
-Terminal=false
-Categories=Game;
-MimeType=x-scheme-handler/accela;
-EOF
-    validar_desktop "$DIR_APPS/assella.desktop"
-    ok "entrada de menu criada em $DIR_APPS/assella.desktop"
-
-    if ! ldconfig -p 2>/dev/null | grep -q libfuse.so.2; then
-        warn "libfuse2 ausente: o AppImage do ASSella nao abre sem ele"
-        case "$(detect_pkg_manager)" in
-            pacman) warn "  sudo pacman -S fuse2" ;;
-            apt)    warn "  sudo apt install libfuse2" ;;
-            dnf)    warn "  sudo dnf install fuse-libs" ;;
-        esac
-    fi
+    ok "ASSella instalado pelo instalador oficial"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
