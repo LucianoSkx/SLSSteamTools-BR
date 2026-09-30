@@ -1,22 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Instalador do SLSsteam, pelo setup.sh oficial do upstream.
-# Uso: ./scripts/install-slssteam.sh [--skip-deps] [--verbose] [--help]
+# Instalador do par SLSsteam + CloudRedirect, que só funciona junto:
+# o CloudRedirect implanta o hook pelo LD_AUDIT do SLSsteam, e precisa do
+# DisableCloud: no no config dele para nao ser bloqueado.
+# Uso: ./scripts/install.sh [--skip-deps] [--verbose] [--help]
+
+# Via "curl ... | bash" o bash le o script do stdin e nao existe BASH_SOURCE,
+# entao caimos no diretorio de onde o comando foi chamado.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 DIR_DADOS="$HOME/.local/share"
 DIR_APPS="$DIR_DADOS/applications"
+DIR_ICONS="$DIR_DADOS/icons/hicolor/256x256/apps"
 DIR_SLS="$DIR_DADOS/SLSsteam"
 DIR_CFG_SLS="$HOME/.config/SLSsteam"
 DIR_CFG_SLS_FLATPAK="$HOME/.var/app/com.valvesoftware.Steam/.config/SLSsteam"
+DIR_CR="$DIR_DADOS/CloudRedirect"
+DIR_CR_APP="$DIR_CR/app"
+DIR_CR_SRC="$DIR_CR/src"
 
 MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
 FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
 
-SKIP_DEPS="${SLS_INSTALL_SKIP_DEPS:-0}"
+REPO_CR="https://github.com/LucianoSkx/cloudredirect-BR.git"
+CR_BRANCH="${CR_BRANCH:-master}"
+
+SKIP_DEPS="${CR_INSTALL_SKIP_DEPS:-0}"
 VERBOSE="${VERBOSE:-0}"
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
@@ -36,14 +49,14 @@ need_cmd() { command -v "$1" >/dev/null 2>&1 || die "comando ausente: $1"; }
 
 show_help() {
     cat <<'EOF'
-Instalador do SLSsteam (AceSLS/SLSsteam)
+Instalador do SLSsteam + CloudRedirect (GUI nativa em pt-BR)
 
 Uso: curl -fsSL <url> | bash -s -- [opcoes]
-     ./scripts/install-slssteam.sh [opcoes]
+     ./scripts/install.sh [opcoes]
 
-Baixa a release oficial e roda o setup.sh de dentro do pacote. Ele copia os
-binarios 32 bits, cria o wrapper path/steam e o steam.desktop com o LD_AUDIT.
-Alem disso deixamos DisableCloud: no, que e o padrao que trava o CloudRedirect.
+Os dois andam juntos: o CloudRedirect implanta o hook de 32 bits na Steam pelo
+LD_AUDIT que o SLSsteam instala, e precisa do DisableCloud: no no config do
+SLSsteam para nao ser bloqueado.
 
 Opcoes:
   --skip-deps     Nao instala as dependencias de sistema
@@ -51,9 +64,10 @@ Opcoes:
   -h, --help      Mostra esta ajuda
 
 Variaveis de ambiente:
-  SLS_INSTALL_SKIP_DEPS=1   mesmo que --skip-deps
-  VERBOSE=1                 mesmo que --verbose
-  GITHUB_TOKEN              token para a API do GitHub (evita o limite de requisicoes)
+  CR_INSTALL_SKIP_DEPS=1   mesmo que --skip-deps
+  VERBOSE=1                mesmo que --verbose
+  CR_BRANCH=master         branch do repo a compilar
+  GITHUB_TOKEN             token para a API do GitHub (evita o limite)
 EOF
     exit 0
 }
@@ -92,16 +106,24 @@ baixar() {
 install_deps() {
     info "instalando dependencias..."
     if   command -v pacman  >/dev/null 2>&1; then
-        $SUDO pacman -S --noconfirm --needed p7zip desktop-file-utils
+        $SUDO pacman -S --noconfirm --needed \
+            cmake git p7zip qt6-base desktop-file-utils
     elif command -v apt-get >/dev/null 2>&1; then
-        $SUDO apt-get install -y p7zip-full desktop-file-utils
+        $SUDO apt-get update
+        $SUDO apt-get install -y \
+            cmake git p7zip-full qt6-base-dev build-essential desktop-file-utils
     elif command -v dnf     >/dev/null 2>&1; then
-        $SUDO dnf install -y p7zip desktop-file-utils
+        $SUDO dnf install -y \
+            cmake git p7zip qt6-qtbase-devel gcc-c++ desktop-file-utils
     else
         die "distro nao suportada (use Arch, Debian/Ubuntu ou Fedora)"
     fi
     ok "dependencias instaladas"
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SLSsteam
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Injeta o LD_AUDIT no steam.sh. O arquivo da Valve vem com modo 555, entao
 # precisa de chmod antes de escrita.
@@ -170,27 +192,15 @@ liberar_cloud_no_sls() {
     fi
 }
 
-main() {
-    need_cmd curl
-    printf "${c_bold}Instalador do SLSsteam (AceSLS/SLSsteam)${c_reset}\n"
-    printf "Destino: %s\n" "$DIR_SLS"
-
-    if [ "$SKIP_DEPS" != "1" ]; then
-        install_deps
-    else
-        local SEVENZ
-        SEVENZ="$(command -v 7z || command -v 7zz || command -v 7za || true)"
-        [ -n "$SEVENZ" ] || die "7zip ausente (no Arch: p7zip; no Debian: p7zip-full)"
-    fi
-
+instalar_slssteam() {
     if [ -f "$DIR_SLS/SLSsteam.so" ]; then
         ok "SLSsteam ja presente em $DIR_SLS"
     else
-        titulo "Baixando a release oficial"
         local SEVENZ
         SEVENZ="$(command -v 7z || command -v 7zz || command -v 7za || true)"
         [ -n "$SEVENZ" ] || die "7zip ausente (no Arch: p7zip; no Debian: p7zip-full)"
 
+        info "consultando a ultima release..."
         api_github "/repos/AceSLS/SLSsteam/releases/latest" "$TMP/rel.json" \
             || die "nao foi possivel consultar a API do GitHub"
         local tag
@@ -203,7 +213,7 @@ main() {
         run_cmd "$SEVENZ" x -y "-o$TMP/sls" "$TMP/slssteam.7z"
         [ -f "$TMP/sls/setup.sh" ] || die "o pacote do SLSsteam nao veio com setup.sh"
 
-        titulo "Rodando o instalador oficial (setup.sh install)"
+        info "rodando o instalador oficial (setup.sh install)..."
         # O setup.sh oficial usa caminhos relativos (./bin/SLSsteam.so), entao
         # precisa rodar com o diretorio de trabalho no pacote extraido. Ele ainda
         # sai com codigo 0 mesmo falhando, por isso conferimos o .so depois.
@@ -217,27 +227,133 @@ main() {
     # path/steam e no .desktop. Quem chama a Steam direto (digitando "steam", ou
     # por outro .desktop) nao passa por nenhum dos dois, entao garantimos o
     # LD_AUDIT no steam.sh tambem. Patch de outra ferramenta e respeitado.
-    titulo "Garantindo o LD_AUDIT no steam.sh"
     local sh found=0
     for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
         if patch_steam "$sh"; then found=1; fi
     done
     [ "$found" = 1 ] || warn "steam.sh nao encontrado; o SLSsteam so carrega pelo wrapper e pelo .desktop do instalador oficial"
 
-    titulo "Configurando"
     liberar_cloud_no_sls "$DIR_CFG_SLS/config.yaml"
     ok "DisableCloud: no em $DIR_CFG_SLS/config.yaml"
     if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
         liberar_cloud_no_sls "$DIR_CFG_SLS_FLATPAK/config.yaml"
         ok "DisableCloud: no tambem no flatpak do Steam"
     fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CloudRedirect
+# ─────────────────────────────────────────────────────────────────────────────
+
+obter_fonte() {
+    if [ -d "$SCRIPT_DIR/../ui-linux" ] && [ -d "$SCRIPT_DIR/../.git" ]; then
+        FONTE="$(cd "$SCRIPT_DIR/.." && pwd)"
+        info "usando o checkout local: $FONTE"
+    elif [ -d "$DIR_CR_SRC/.git" ]; then
+        info "atualizando o codigo em $DIR_CR_SRC"
+        run_cmd git -C "$DIR_CR_SRC" fetch --depth 1 origin "$CR_BRANCH" \
+            || die "falha ao buscar atualizacoes"
+        run_cmd git -C "$DIR_CR_SRC" reset --hard "origin/$CR_BRANCH" \
+            || die "falha ao atualizar o codigo"
+        FONTE="$DIR_CR_SRC"
+    else
+        info "clonando o CloudRedirect pt-BR ($CR_BRANCH)..."
+        mkdir -p "$DIR_CR"
+        run_cmd git clone --depth 1 --branch "$CR_BRANCH" "$REPO_CR" "$DIR_CR_SRC" \
+            || die "falha ao clonar $REPO_CR"
+        FONTE="$DIR_CR_SRC"
+    fi
+}
+
+instalar_cloudredirect() {
+    obter_fonte
+
+    info "compilando a interface (Qt6, pode demorar alguns minutos)..."
+    run_cmd cmake -S "$FONTE/ui-linux" -B "$FONTE/ui-linux/build" \
+        -DCMAKE_BUILD_TYPE=Release || die "falha no cmake configure"
+    run_cmd cmake --build "$FONTE/ui-linux/build" --target cloud-redirect-ui \
+        -j"$(nproc 2>/dev/null || echo 2)" || die "falha ao compilar a GUI"
+
+    local gui="$FONTE/ui-linux/build/cloud-redirect-ui"
+    [ -x "$gui" ] || die "binario da GUI nao encontrado em $gui"
+
+    mkdir -p "$DIR_CR_APP"
+    install -m 755 "$gui" "$DIR_CR_APP/cloud-redirect-ui"
+    ok "GUI instalada em $DIR_CR_APP/cloud-redirect-ui"
+
+    # O .so e a CLI de 32 bits ja vem commitados no repositorio.
+    local arq
+    for arq in cloud_redirect.so cloud_redirect_cli; do
+        [ -f "$FONTE/$arq" ] || die "$arq nao encontrado no repositorio"
+        install -m 755 "$FONTE/$arq" "$DIR_CR_APP/$arq"
+    done
+    if command -v file >/dev/null 2>&1; then
+        file -b "$DIR_CR_APP/cloud_redirect.so" | grep -q 'ELF 32-bit' \
+            || die "cloud_redirect.so nao e 32-bit; o runtime da Steam nao vai carregar"
+    fi
+    ok "cloud_redirect.so e cloud_redirect_cli (32 bits) ao lado da GUI"
+
+    # Isto e o mesmo que o botao Instalar da aba Montagem faz, e so funciona
+    # porque o SLSsteam ja deixou o LD_AUDIT no lugar.
+    mkdir -p "$DIR_CR"
+    for arq in cloud_redirect.so cloud_redirect_cli; do
+        install -m 755 "$DIR_CR_APP/$arq" "$DIR_CR/$arq"
+    done
+    ok "CloudRedirect implantado em $DIR_CR"
+
+    mkdir -p "$DIR_ICONS"
+    install -m 644 "$FONTE/ui-linux/src/cloudredirect.png" "$DIR_ICONS/cloudredirect.png"
+
+    mkdir -p "$DIR_APPS"
+    cat > "$DIR_APPS/cloudredirect.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=CloudRedirect
+GenericName=Gerenciador de saves na nuvem
+Comment=Redireciona o Steam Cloud para provedores externos
+Exec="$DIR_CR_APP/cloud-redirect-ui"
+Icon=cloudredirect
+Terminal=false
+Categories=Game;
+Keywords=steam;cloud;save;backup;sync;slssteam;
+StartupNotify=true
+EOF
+    if command -v desktop-file-validate >/dev/null 2>&1; then
+        desktop-file-validate "$DIR_APPS/cloudredirect.desktop" 2>&1 | grep -v '^$' | while read -r l; do
+            warn "cloudredirect.desktop: $l"
+        done || true
+    fi
+    ok "entrada de menu criada em $DIR_APPS/cloudredirect.desktop"
+}
+
+main() {
+    need_cmd curl
+    need_cmd git
+    printf "${c_bold}Instalador do SLSsteam + CloudRedirect (pt-BR)${c_reset}\n"
+    printf "Destino: %s\n" "$HOME"
+
+    [ "$SKIP_DEPS" != "1" ] && install_deps
+
+    titulo "1/2  SLSsteam"
+    instalar_slssteam
+
+    titulo "2/2  CloudRedirect"
+    instalar_cloudredirect
 
     if command -v update-desktop-database >/dev/null 2>&1; then
         run_cmd update-desktop-database -q "$DIR_APPS" || true
     fi
 
     titulo "Pronto"
-    warn "Feche a Steam completamente e abra de novo para o SLSsteam passar a valer"
+    cat <<EOF
+  SLSsteam      $DIR_SLS
+  CloudRedirect $DIR_CR_APP/cloud-redirect-ui
+
+Reinicie a Steam para o LD_AUDIT valer, e abra o CloudRedirect pelo menu. O
+provedor de nuvem se configura na aba Provedor; Google Drive e OneDrive pedem
+autorizacao pelo navegador na primeira vez.
+EOF
 }
 
 main "$@"
