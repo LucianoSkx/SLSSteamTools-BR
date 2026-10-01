@@ -126,12 +126,11 @@ injetar_steam() {
         printf '%s\n' "$MARCADOR_SLS"
         cat <<'INJ'
 _SLS_DIR="$HOME/.local/share/SLSsteam"
-_CR_DIR="$HOME/.local/share/CloudRedirect"
+_CR_SO="$HOME/.local/share/CloudRedirect/cloud_redirect.so"
 if [ -f "$_SLS_DIR/library-inject.so" ] && [ -f "$_SLS_DIR/SLSsteam.so" ]; then
-	_AUDIT="$_SLS_DIR/library-inject.so:$_SLS_DIR/SLSsteam.so"
-	[ -f "$_CR_DIR/cloud_redirect.so" ] && _AUDIT="$_CR_DIR/cloud_redirect.so:$_AUDIT"
-	export LD_AUDIT="$_AUDIT"
+	export LD_AUDIT="$_SLS_DIR/library-inject.so:$_SLS_DIR/SLSsteam.so"
 fi
+[ -f "$_CR_SO" ] && export LD_PRELOAD="${LD_PRELOAD:+$LD_PRELOAD:}$_CR_SO"
 INJ
         printf '%s\n' "$FIM_MARCADOR_SLS"
         cat
@@ -141,7 +140,7 @@ INJ
     cat "$tmp" > "$sh"
     chmod "$modo" "$sh"
     cp -n "$bak" "$sh.slssteam.bak" 2>/dev/null || true
-    ok "LD_AUDIT injetado em $sh (backup em $sh.slssteam.bak)"
+    ok "LD_AUDIT (SLSsteam) e LD_PRELOAD (CloudRedirect) injetados em $sh (backup em $sh.slssteam.bak)"
 }
 
 patch_steam() {
@@ -149,11 +148,12 @@ patch_steam() {
     [ -f "$sh" ] || return 1
 
     if grep -q "$MARCADOR_SLS" "$sh"; then
-        # Reaplica se o patch for antigo e nao incluir o cloud_redirect.so.
-        if grep -q 'cloud_redirect.so' "$sh"; then
+        # Reescreve patches antigos: o cloud_redirect.so entra por LD_PRELOAD,
+        # nunca por LD_AUDIT (quebra o ldd do client.sh).
+        if grep -q 'LD_PRELOAD' "$sh" && grep -q 'cloud_redirect.so' "$sh"; then
             ok "patch do instalador ja presente em $sh"
         else
-            warn "patch antigo em $sh, sem o cloud_redirect.so; reescrevendo"
+            warn "patch antigo em $sh; reescrevendo"
             despatch_steam "$sh"
             injetar_steam "$sh"
         fi
