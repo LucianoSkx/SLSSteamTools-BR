@@ -196,6 +196,38 @@ liberar_cloud_no_sls() {
     else
         printf '\nDisableCloud: no\n' >> "$cfg"
     fi
+
+    garantir_notificacao_sls "$cfg"
+}
+
+garantir_notificacao_sls() {
+    local cfg="$1" val atual novo
+    [ -f "$cfg" ] || return 0
+
+    if grep -q '^[[:space:]]*NotifyInit:' "$cfg"; then
+        sed -i -E 's/^([[:space:]]*NotifyInit:).*/\1 yes/' "$cfg"
+    else
+        printf '\nNotifyInit: yes\n' >> "$cfg"
+    fi
+
+    val="$(awk '/^[[:space:]]*LogLevels:/ {print $2; exit}' "$cfg")"
+    if [ -z "$val" ]; then
+        printf '\nLogLevels: 0xff\n' >> "$cfg"
+        return 0
+    fi
+    case "$val" in
+        0[xX][0-9a-fA-F]*|[0-9]*) ;;
+        *)
+            warn "LogLevels '$val' fora do esperado em $cfg; nao alterado"
+            return 0
+            ;;
+    esac
+    atual=$((val))
+    novo=$((atual | 0xc0))
+    if [ "$novo" -ne "$atual" ]; then
+        sed -i -E "s/^([[:space:]]*LogLevels:[[:space:]]*)[^#[:space:]]*/\1$(printf '0x%x' "$novo")/" "$cfg"
+        ok "LogLevels $(printf '0x%x' "$atual") -> $(printf '0x%x' "$novo") em $cfg (notificacoes ligadas)"
+    fi
 }
 
 instalar_slssteam() {
