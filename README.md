@@ -91,28 +91,33 @@ entra na Steam por um mecanismo próprio — o SLSsteam por `LD_AUDIT`, o
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install.sh | bash
 ```
 
-O que o script faz:
+O que o script faz (modo [h3adcr-b](https://github.com/Deadboy666/h3adcr-b),
+com o CloudRedirect desta fork no lugar do flatpak deles):
 
-**1. SLSsteam** — baixa a release oficial do
-[AceSLS/SLSsteam](https://github.com/AceSLS/SLSsteam) e roda o `setup.sh` de
-dentro do pacote, que copia os binários 32 bits, cria o wrapper `path/steam` e o
-`steam.desktop` com o `LD_AUDIT`. O script injeta no `steam.sh` também o
-`LD_AUDIT` do SLSsteam e o `LD_PRELOAD` do `cloud_redirect.so`, porque o
-`setup.sh` oficial não mexe nele e quem chama a Steam digitando `steam` não passa
-nem pelo wrapper nem pelo `.desktop`. O `steam.sh` vai com backup em
-`steam.sh.slssteam.bak` e com o modo `555` original. Um patch de outra ferramenta
-é detectado e reescrito, um já nosso é reaproveitado.
+**1. Cliente Steam** — lê o manifesto instalado e compara com a versão
+compatível com o SLSsteam. Se divergir, encerra a Steam e rebaixa o cliente
+pelo servidor de depot local (dgsc), e grava o `steam.cfg` com
+`BootStrapperInhibitAll=enable` para a Steam não se autoatualizar e quebrar
+o hook. Para pular essa trava: `--no-pin-client`.
 
-No `config.yaml` o script garante três coisas: `DisableCloud: no`, porque o
-padrão `yes` do upstream trava o CloudRedirect; `NotifyInit: yes`; e `LogLevels`
-com o bit `NotifyShort`, que é o que faz o SLSsteam avisar que carregou. Esse bit
-sai do config quando o `h3adcr-b` roda no CachyOS, que grava `LogLevels: 0x3f`
-justamente sem as notificações.
+**2. SLSsteam** — baixa a release oficial do
+[AceSLS/SLSsteam](https://github.com/AceSLS/SLSsteam) e instala por extração
+direta dos binários 32 bits (sem o `setup.sh` oficial, sem wrapper
+`path/steam`). O `config.yaml` existente é mesclado com o novo modelo
+preservando as suas chaves (backup em `config.yaml.instbackup-*`), e o script
+garante três coisas: `DisableCloud: no`, porque o padrão `yes` do upstream
+trava o CloudRedirect; `NotifyInit: yes`; e `LogLevels` com o bit
+`NotifyShort`, que é o que faz o SLSsteam avisar que carregou.
 
-**2. CloudRedirect** — compila a interface Qt6 desta fork, instala o
+**3. CloudRedirect** — compila a interface Qt6 desta fork, instala o
 `cloud_redirect.so` e a CLI, e cria a entrada de menu. O `.so` já vem commitado
 no repositório, em 32 bits, e a implantação é a mesma que o botão **Instalar** da
 aba **Instalação** faz.
+
+O `steam.sh` é substituído pelo lançador com o `LD_AUDIT` do SLSsteam e o
+`LD_PRELOAD` do `cloud_redirect.so`, com backup em `steam.sh.slssteam.bak` e
+modo `555`. Um patch antigo com marcadores é migrado, um de outra ferramenta
+é substituído com aviso.
 
 Depois de instalar, **reinicie a Steam** — `LD_AUDIT` e `LD_PRELOAD` só se
 aplicam a processos novos — e abra o CloudRedirect pelo menu.
@@ -123,6 +128,7 @@ aplicam a processos novos — e abra o CloudRedirect pelo menu.
 |---|---|
 | `--skip-deps` | não instala dependências de sistema |
 | `--update-sls` | reinstala o SLSsteam na última release mesmo se já existir |
+| `--no-pin-client` | não trava nem rebaixa o cliente Steam (não recomendado) |
 | `--verbose` | mostra a saída de todos os comandos |
 | `--help` | mostra a ajuda |
 
@@ -133,7 +139,8 @@ instalado — para puxar o mais novo sem apagar na mão:
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install.sh | bash -s -- --update-sls
 ```
 
-Variáveis de ambiente: `CR_INSTALL_SKIP_DEPS=1`, `CR_UPDATE_SLS=1`, `VERBOSE=1`, `CR_BRANCH`,
+Variáveis de ambiente: `CR_INSTALL_SKIP_DEPS=1`, `CR_UPDATE_SLS=1`,
+`CR_PIN_CLIENT=0`, `CR_CLIENT_VER=<build-do-cliente>`, `VERBOSE=1`, `CR_BRANCH`,
 `GITHUB_TOKEN` (evita o limite de requisições da API).
 
 ## Remover
@@ -150,7 +157,9 @@ Para o par SLSsteam + CloudRedirect:
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/uninstall.sh | bash -s -- --yes
 ```
 
-Desfaz o patch do `steam.sh` devolvendo-o byte a byte e apaga o wrapper, o
+Desfaz o `steam.sh` restaurando o `steam.sh.slssteam.bak` (formato antigo com
+marcadores também é removido), apaga o `client.sh` do modo h3adcr-b, o
+`steam.cfg` — a Steam volta a se atualizar sozinha —, o wrapper, o
 `steam.desktop`, o `PATH` do fish, os binários 32 bits, a GUI e as entradas de
 menu. Um patch de `LD_AUDIT` de outra ferramenta é preservado: só sai o que este
 instalador escreveu.

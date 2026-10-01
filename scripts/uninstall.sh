@@ -28,8 +28,10 @@ Removedor do SLSsteam + CloudRedirect
 Uso: curl -fsSL <url> | bash -s -- [opcoes]
      ./scripts/uninstall.sh [opcoes]
 
-Desfaz o patch do steam.sh devolvendo-o byte a byte, apaga o wrapper, o
-steam.desktop, os binarios 32 bits, a GUI e as entradas de menu.
+Restaura o steam.sh a partir do steam.sh.slssteam.bak (ou remove o bloco
+antigo com marcadores), apaga o client.sh do modo h3adcr-b, o steam.cfg
+que travava os updates, o wrapper, os binarios, a GUI e as entradas de
+menu. A Steam volta a se atualizar sozinha depois disso.
 
 Nao apaga dados: config, tokens OAuth, saves, backups e logs do CloudRedirect
 e o config.yaml do SLSsteam continuam no lugar.
@@ -68,6 +70,19 @@ despatch_steam() {
     [ -n "${VISTOS[$inode]:-}" ] && return 0
     VISTOS[$inode]=1
 
+    local raiz; raiz="$(cd "$(dirname "$sh")" && pwd)"
+
+    if [ -f "$sh.slssteam.bak" ]; then
+        local modo; modo="$(stat -c '%a' "$sh")"
+        chmod u+w "$sh"
+        cat "$sh.slssteam.bak" > "$sh"
+        chmod "$modo" "$sh"
+        rm -f "$sh.slssteam.bak" "$raiz/client.sh" "$raiz/steam.cfg"
+        ok "steam.sh restaurado do backup em $sh (updates da Steam liberados)"
+        return 0
+    fi
+
+    # Formato antigo (bloco com marcadores do instalador anterior).
     grep -q 'LD_AUDIT' "$sh" && grep -q 'SLSsteam\.so' "$sh" || return 0
 
     if ! grep -q "$MARCADOR_SLS" "$sh"; then
@@ -109,8 +124,10 @@ main() {
     titulo "2/3  SLSsteam"
     despatch_steam "$HOME/.local/share/Steam/steam.sh"
     despatch_steam "$HOME/.steam/steam/steam.sh"
+    despatch_steam "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steam.sh"
     rm -f "$HOME/.local/share/Steam/steam.sh.slssteam.bak" \
           "$HOME/.steam/steam/steam.sh.slssteam.bak"
+    rm -rf "$HOME/.headcrab"
     rm -f "$DIR_APPS/steam.desktop" "$DIR_APPS/steam-native.desktop" \
           "$HOME/.config/fish/conf.d/SLSsteam.fish"
     rm -rf "$DIR_SLS"
