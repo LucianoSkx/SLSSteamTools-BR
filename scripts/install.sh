@@ -24,6 +24,7 @@ CR_BRANCH="${CR_BRANCH:-master}"
 
 SKIP_DEPS="${CR_INSTALL_SKIP_DEPS:-0}"
 VERBOSE="${VERBOSE:-0}"
+UPDATE_SLS="${CR_UPDATE_SLS:-0}"
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
 c_red='\033[1;31m'; c_cyan='\033[1;36m'; c_bold='\033[1m'
@@ -53,11 +54,13 @@ SLSsteam para nao ser bloqueado.
 
 Opcoes:
   --skip-deps     Nao instala as dependencias de sistema
+  --update-sls    Reinstala o SLSsteam na ultima release mesmo se ja existir
   --verbose       Mostra a saida de todos os comandos
   -h, --help      Mostra esta ajuda
 
 Variaveis de ambiente:
   CR_INSTALL_SKIP_DEPS=1   mesmo que --skip-deps
+  CR_UPDATE_SLS=1          mesmo que --update-sls
   VERBOSE=1                mesmo que --verbose
   CR_BRANCH=master         branch do repo a compilar
   GITHUB_TOKEN             token para a API do GitHub (evita o limite)
@@ -68,6 +71,7 @@ EOF
 for arg in "$@"; do
     case "$arg" in
         --skip-deps) SKIP_DEPS=1 ;;
+        --update-sls) UPDATE_SLS=1 ;;
         --verbose)   VERBOSE=1 ;;
         -h|--help)   show_help ;;
         *) die "opcao desconhecida: $arg (use --help)" ;;
@@ -231,7 +235,7 @@ garantir_notificacao_sls() {
 }
 
 instalar_slssteam() {
-    if [ -f "$DIR_SLS/SLSsteam.so" ]; then
+    if [ "$UPDATE_SLS" != "1" ] && [ -f "$DIR_SLS/SLSsteam.so" ]; then
         ok "SLSsteam ja presente em $DIR_SLS"
     else
         local SEVENZ
@@ -260,7 +264,7 @@ instalar_slssteam() {
 
     # O setup.sh oficial nao grava o arquivo "version", que e de onde o ASSella
     # le a versao local. Sem ele o ASSella mostra "Unknown" na aba Health.
-    if [ ! -f "$DIR_SLS/version" ]; then
+    if [ "$UPDATE_SLS" = "1" ] || [ ! -f "$DIR_SLS/version" ]; then
         v="${tag:-}"
         if [ -z "$v" ]; then
             v="$(curl -fsSL -H 'Accept: application/vnd.github+json' \

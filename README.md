@@ -122,12 +122,18 @@ aplicam a processos novos — e abra o CloudRedirect pelo menu.
 | Opção | Efeito |
 |---|---|
 | `--skip-deps` | não instala dependências de sistema |
+| `--update-sls` | reinstala o SLSsteam na última release mesmo se já existir |
 | `--verbose` | mostra a saída de todos os comandos |
 | `--help` | mostra a ajuda |
 
-Rodar o instalador de novo atualiza tudo.
+Rodar o instalador de novo atualiza tudo, exceto o SLSsteam quando já
+instalado — para puxar o mais novo sem apagar na mão:
 
-Variáveis de ambiente: `CR_INSTALL_SKIP_DEPS=1`, `VERBOSE=1`, `CR_BRANCH`,
+```sh
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install.sh | bash -s -- --update-sls
+```
+
+Variáveis de ambiente: `CR_INSTALL_SKIP_DEPS=1`, `CR_UPDATE_SLS=1`, `VERBOSE=1`, `CR_BRANCH`,
 `GITHUB_TOKEN` (evita o limite de requisições da API).
 
 ## Remover
