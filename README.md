@@ -154,9 +154,6 @@ obrigatório.
 | `~/.local/share/CloudRedirect/` | CloudRedirect | hook implantado (o `.so` e a CLI) |
 | `~/.config/CloudRedirect/` | CloudRedirect | `config.json`, `storage/`, `backups/`, `tokens_*.json`, `r2_credentials.json`, logs |
 
-O nome `ACCELA` (1 L) é o que o código do ASSella usa. Se os seus dados
-estiverem em `ACCELLA` (2 L), mova a pasta — o app não acha o outro nome.
-
 O hook só é implantado com o SLSsteam instalado. Se você removeu o SLSsteam, o
 CloudRedirect exibe "Não implantado" na aba **Instalação** e o botão
 **Instalar** volta a funcionar.
