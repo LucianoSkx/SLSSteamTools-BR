@@ -49,7 +49,8 @@ O instalador é o do próprio upstream — este repositório não o reempacota, 
 que o caminho, a versão e o `.desktop` se mantenham em dia junto com o app:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bash
+curl -fLO https://github.com/niwia/ASSella/releases/download/v2.7.0beta/assella-2.7.0beta-1-x86_64.pkg.tar.zst
+sudo pacman -U assella-2.7.0beta-1-x86_64.pkg.tar.zst
 ```
 
 Baixa o AppImage, cria a entrada de menu e o ícone. Precisa de `libfuse2`
