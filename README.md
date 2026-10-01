@@ -49,18 +49,32 @@ O instalador é o do próprio upstream — este repositório não o reempacota, 
 que o caminho, a versão e o `.desktop` se mantenham em dia junto com o app:
 
 ```sh
-curl -fLO https://github.com/niwia/ASSella/releases/download/v2.7.0beta/assella-2.7.0beta-1-x86_64.pkg.tar.zst
-sudo pacman -U assella-2.7.0beta-1-x86_64.pkg.tar.zst
+curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bash
 ```
 
 Baixa o AppImage, cria a entrada de menu e o ícone. Precisa de `libfuse2`
 funcionando, senão o AppImage não abre.
 
 No Arch o upstream publica pacote também, com o mesmo AppImage dentro e o
-`fuse2` resolvido pelo próprio pacman:
+`fuse2` resolvido pelo próprio pacman. Não passe a URL direto para o
+`pacman -U` — o pacote não é assinado e dá erro; baixe antes e instale o
+arquivo local:
 
 ```sh
-sudo pacman -U https://github.com/niwia/ASSella/releases/download/v2.7.0beta/assella-2.7.0beta-1-x86_64.pkg.tar.zst
+curl -fLO https://github.com/niwia/ASSella/releases/download/v2.7.0beta/assella-2.7.0beta-1-x86_64.pkg.tar.zst
+sudo pacman -U assella-2.7.0beta-1-x86_64.pkg.tar.zst
+```
+
+Ou configure o repositório contínuo em `/etc/pacman.conf`:
+
+```ini
+[assella]
+SigLevel = Optional TrustAll
+Server = https://github.com/niwia/ASSella/releases/download/arch-repo
+```
+
+```sh
+sudo pacman -Sy assella
 ```
 
 A URL leva a versão fixa; confira a mais nova em
