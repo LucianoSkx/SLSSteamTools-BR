@@ -38,7 +38,8 @@ Steam via `LD_PRELOAD`. O SLSsteam é quem entra por `LD_AUDIT`.
 - distro com `pacman`, `apt` ou `dnf` (as dependências são instaladas pelo
   script)
 - compilador e Qt6, se for instalar o CloudRedirect — o script compila a GUI
-- `libfuse2` (no Arch, `fuse2`) para o AppImage do ASSella
+- `libfuse2` (no Arch, `fuse2`) para o AppImage do ASSella — pelo pacote do
+  Arch ele vem automático
 
 ## Instalar
 
@@ -53,6 +54,16 @@ curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bas
 
 Baixa o AppImage, cria a entrada de menu e o ícone. Precisa de `libfuse2`
 funcionando, senão o AppImage não abre.
+
+No Arch o upstream publica pacote também, com o mesmo AppImage dentro e o
+`fuse2` resolvido pelo próprio pacman:
+
+```sh
+sudo pacman -U https://github.com/niwia/ASSella/releases/download/v2.7.0beta/assella-2.7.0beta-1-x86_64.pkg.tar.zst
+```
+
+A URL leva a versão fixa; confira a mais nova em
+[niwia/ASSella](https://github.com/niwia/ASSella).
 
 ### 2. SLSsteam + CloudRedirect
 
