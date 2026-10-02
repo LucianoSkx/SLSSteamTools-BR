@@ -114,6 +114,10 @@ trava o CloudRedirect; `NotifyInit: yes`; e `LogLevels` com o bit
 no repositório, em 32 bits, e a implantação é a mesma que o botão **Instalar** da
 aba **Instalação** faz.
 
+**4. Plugins Lua** — copia os `.lua` de `sls-plugins/` (código de terceiros,
+fonte anônima) para `~/.config/SLSsteam/plugins/` e liga `Plugins: yes` no
+config. Sem o instalador de terceiros: sem headcrab, sem reinstalar o SLSsteam.
+
 O `steam.sh` é substituído pelo lançador com o `LD_AUDIT` do SLSsteam e o
 `LD_PRELOAD` do `cloud_redirect.so`, com backup em `steam.sh.slssteam.bak` e
 modo `555`. Um patch antigo com marcadores é migrado, um de outra ferramenta

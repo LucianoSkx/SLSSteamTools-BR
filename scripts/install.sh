@@ -466,6 +466,37 @@ instalar_slssteam() {
     fi
 }
 
+garantir_plugins_yes() {
+    local cfg="$1"
+    mkdir -p "$(dirname "$cfg")"
+    [ -f "$cfg" ] || { printf 'Plugins: yes\n' > "$cfg"; return 0; }
+    if grep -qE '^[[:space:]]*Plugins:' "$cfg"; then
+        sed -i -E 's/^([[:space:]]*Plugins:).*/\1 yes/' "$cfg"
+    else
+        printf '\nPlugins: yes\n' >> "$cfg"
+    fi
+}
+
+# Copia os .lua de sls-plugins/ para cada config dir do SLSsteam e liga
+# Plugins: yes. Roda depois de obter_fonte, pois a origem e o proprio repo.
+instalar_plugins_sls() {
+    local origem="${FONTE:-}/sls-plugins"
+    if [ ! -d "$origem" ]; then
+        warn "pasta sls-plugins ausente em ${FONTE:-?}; pulando plugins Lua"
+        return 0
+    fi
+    local dir
+    for dir in "$DIR_CFG_SLS" "$DIR_CFG_SLS_FLATPAK"; do
+        if [ "$dir" = "$DIR_CFG_SLS_FLATPAK" ] && [ ! -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
+            continue
+        fi
+        mkdir -p "$dir/plugins"
+        cp -f "$origem"/*.lua "$dir/plugins/"
+        garantir_plugins_yes "$dir/config.yaml"
+        ok "plugins Lua em $dir/plugins (Plugins: yes)"
+    done
+}
+
 # Lancador estilo h3adcr-b com o hook do nosso CloudRedirect BR junto.
 escrever_steam_cr() {
     local sh="$1" raiz
@@ -650,16 +681,19 @@ main() {
 
     [ "$SKIP_DEPS" != "1" ] && install_deps
 
-    titulo "1/3  Cliente Steam"
+    titulo "1/4  Cliente Steam"
     remover_pacote_slssteam
     desativar_wrapper_sls
     travar_cliente_steam
 
-    titulo "2/3  SLSsteam"
+    titulo "2/4  SLSsteam"
     instalar_slssteam
 
-    titulo "3/3  CloudRedirect BR"
+    titulo "3/4  CloudRedirect BR"
     instalar_cloudredirect
+
+    titulo "4/4  Plugins Lua do SLSsteam"
+    instalar_plugins_sls
 
     # O steam.sh precisa ser escrito depois do cloud_redirect.so existir em
     # disco, senao o lancador referencia um hook ausente.
@@ -678,6 +712,7 @@ main() {
     cat <<EOF
   Cliente Steam   travado em $CLIENT_VER (steam.cfg bloqueia updates)
   SLSsteam        $DIR_SLS
+  Plugins Lua     $DIR_CFG_SLS/plugins (download, spliced-tickets)
   CloudRedirect   $DIR_CR_APP/cloud-redirect-ui
 
 Reinicie a Steam para o LD_AUDIT valer, e abra o CloudRedirect pelo menu. O
