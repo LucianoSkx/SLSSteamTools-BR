@@ -114,6 +114,26 @@ api_github() {
     fi
 }
 
+# Ultima tag do SLSsteam sem depender so da API (que tem cota de 60 req/h
+# sem token e faz o ASSella mostrar "Version Unknown" na aba Health).
+# Tenta a API primeiro (com GITHUB_TOKEN se houver) e cai para a URL de
+# redirect do latest, que nao consome cota da API.
+ultima_tag_sls() {
+    local rel_tmp tag redir
+    rel_tmp="$(mktemp)" || return 1
+    if api_github "/repos/AceSLS/SLSsteam/releases/latest" "$rel_tmp" 2>/dev/null; then
+        tag="$(grep -m1 '"tag_name"' "$rel_tmp" 2>/dev/null | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+        rm -f "$rel_tmp"
+        [ -n "$tag" ] && { printf '%s\n' "$tag"; return 0; }
+    fi
+    rm -f "$rel_tmp"
+    redir="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+        https://github.com/AceSLS/SLSsteam/releases/latest 2>/dev/null)" || return 1
+    tag="${redir##*/}"
+    [ -n "$tag" ] && [ "$tag" != "latest" ] && { printf '%s\n' "$tag"; return 0; }
+    return 1
+}
+
 baixar() {
     info "baixando $(basename "$2")"
     run_cmd curl -fL --retry 3 --retry-delay 2 -o "$2" "$1" || die "falha no download: $1"
@@ -416,24 +436,25 @@ instalar_slssteam() {
             cp -f "$TMP/sls/bin/"* "$DIR_SLS_FLATPAK/"
         fi
         ok "SLSsteam $tag instalado por extracao direta"
+        # O binario recem-instalado e exatamente o da tag: registra na hora,
+        # sem depender de uma segunda consulta a API.
+        printf '%s\n' "$tag" > "$DIR_SLS/version"
+        ok "versao $tag registrada em $DIR_SLS/version (para o ASSella)"
     fi
 
     baixar_netsock
 
     # O setup.sh oficial nao grava o arquivo "version", que e de onde o ASSella
-    # le a versao local. Sem ele o ASSella mostra "Unknown" na aba Health.
-    if [ "$UPDATE_SLS" = "1" ] || [ ! -f "$DIR_SLS/version" ]; then
-        v="${tag:-}"
-        if [ -z "$v" ]; then
-            v="$(curl -fsSL -H 'Accept: application/vnd.github+json' \
-                https://api.github.com/repos/AceSLS/SLSsteam/releases/latest 2>/dev/null \
-                | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-        fi
+    # le a versao local. Sem ele a aba SLS mostra "Installed (Version Unknown)"
+    # e a aba Health nao tem com o que comparar (vira "Unknown" quando a API
+    # do GitHub tambem falha por rate limit: 60 req/h sem token).
+    if [ ! -s "$DIR_SLS/version" ]; then
+        v="$(ultima_tag_sls 2>/dev/null || true)"
         if [ -n "$v" ]; then
             printf '%s\n' "$v" > "$DIR_SLS/version"
             ok "versao $v registrada em $DIR_SLS/version (para o ASSella)"
         else
-            warn "nao foi possivel descobrir a versao do SLSsteam para o ASSella"
+            warn "nao foi possivel descobrir a versao do SLSsteam para o ASSella (API com rate limit e redirect falhou; exporte GITHUB_TOKEN e rode de novo)"
         fi
     fi
 
