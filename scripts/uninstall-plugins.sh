@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# Remove os plugins Lua instalados pelo install-plugins.sh.
-# Apaga so os dois arquivos deste repo; outros plugins seus ficam no lugar
-# e a chave Plugins do config nao e alterada.
-#
-# Uso: ./scripts/uninstall-plugins.sh
-#      curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/uninstall-plugins.sh | bash
 set -euo pipefail
 
 NATIVE_CONFIG_DIR="$HOME/.config/SLSsteam"

@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Instala so os plugins Lua do SLSsteam, sem o resto do instalador
-# (sem headcrab, sem reinstalar o SLSsteam).
-#
-# Uso: ./scripts/install-plugins.sh
-#      curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install-plugins.sh | bash
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
@@ -36,6 +31,14 @@ garantir_plugins_yes() {
     fi
 }
 
+garantir_secoes_download() {
+    local cfg="$1" chave
+    for chave in AdditionalDepots DecryptionKeys; do
+        grep -qE "^[[:space:]]*$chave:" "$cfg" 2>/dev/null \
+            || printf '\n%s:\n' "$chave" >> "$cfg"
+    done
+}
+
 obter_lua() {
     local nome="$1" dest="$2"
     if [ -f "$SCRIPT_DIR/../sls-plugins/$nome" ]; then
@@ -57,6 +60,7 @@ while IFS= read -r dir; do
     mkdir -p "$dir/plugins"
     cp -f "$TMP"/download.lua "$TMP"/spliced-tickets.lua "$dir/plugins/"
     garantir_plugins_yes "$dir/config.yaml"
+    garantir_secoes_download "$dir/config.yaml"
     ok "plugins Lua em $dir/plugins (Plugins: yes)"
 done < <(config_dirs)
 

@@ -18,9 +18,6 @@ DIR_CR_APP="$DIR_CR/app"
 DIR_CR_SRC="$DIR_CR/src"
 DIR_HEADCRAB="$HOME/.headcrab"
 
-# Pilares herdados do h3adcr-b (Deadboy666/h3adcr-b): o cliente Steam fica
-# travado na versao compativel com o SLSsteam, e o steam.cfg impede que ele
-# se autoatualize e quebre o hook.
 PIN_CLIENT="${CR_PIN_CLIENT:-1}"
 CLIENT_VER="${CR_CLIENT_VER:-1788652215}"
 
@@ -114,10 +111,6 @@ api_github() {
     fi
 }
 
-# Ultima tag do SLSsteam sem depender so da API (que tem cota de 60 req/h
-# sem token e faz o ASSella mostrar "Version Unknown" na aba Health).
-# Tenta a API primeiro (com GITHUB_TOKEN se houver) e cai para a URL de
-# redirect do latest, que nao consome cota da API.
 ultima_tag_sls() {
     local rel_tmp tag redir
     rel_tmp="$(mktemp)" || return 1
@@ -145,8 +138,6 @@ matar_steam() {
     sleep 2
 }
 
-# Raizes do cliente Steam, sem duplicar (nativo costuma ser o mesmo inode
-# em ~/.steam/steam e ~/.local/share/Steam).
 raizes_steam() {
     local cand raiz
     for cand in "$HOME/.steam/steam" "$HOME/.local/share/Steam" \
@@ -202,8 +193,6 @@ desativar_wrapper_sls() {
     done
 }
 
-# Trava o cliente na versao compativel: se divergir, rebaixa pelo servidor
-# de depot local (dgsc), como o h3adcr-b faz.
 travar_cliente_steam() {
     if [ "$PIN_CLIENT" != "1" ]; then
         info "travamento do cliente desativado (--no-pin-client)"
@@ -255,7 +244,6 @@ travar_cliente_steam() {
                 lancador="$(command -v steam || true)"
                 [ -n "$lancador" ] || die "comando steam nao encontrado no PATH" ;;
         esac
-        # shellcheck disable=SC2086
         run_cmd timeout 900 env -u LD_AUDIT -u LD_PRELOAD $lancador \
             -forcesteamupdate -forcepackagedownload \
             -overridepackageurl "$URL_DOWNGRADE" -exitsteam \
@@ -270,7 +258,6 @@ travar_cliente_steam() {
     done < <(raizes_steam)
 }
 
-# Merge do config novo preservando as chaves do usuario (modo h3adcr-b).
 mesclar_config_sls() {
     local cfg="$1" modelo="$2" tmp_cfg bkp
     [ -f "$modelo" ] || return 0
@@ -436,18 +423,12 @@ instalar_slssteam() {
             cp -f "$TMP/sls/bin/"* "$DIR_SLS_FLATPAK/"
         fi
         ok "SLSsteam $tag instalado por extracao direta"
-        # O binario recem-instalado e exatamente o da tag: registra na hora,
-        # sem depender de uma segunda consulta a API.
         printf '%s\n' "$tag" > "$DIR_SLS/version"
         ok "versao $tag registrada em $DIR_SLS/version (para o ASSella)"
     fi
 
     baixar_netsock
 
-    # O setup.sh oficial nao grava o arquivo "version", que e de onde o ASSella
-    # le a versao local. Sem ele a aba SLS mostra "Installed (Version Unknown)"
-    # e a aba Health nao tem com o que comparar (vira "Unknown" quando a API
-    # do GitHub tambem falha por rate limit: 60 req/h sem token).
     if [ ! -s "$DIR_SLS/version" ]; then
         v="$(ultima_tag_sls 2>/dev/null || true)"
         if [ -n "$v" ]; then
@@ -477,8 +458,14 @@ garantir_plugins_yes() {
     fi
 }
 
-# Copia os .lua de sls-plugins/ para cada config dir do SLSsteam e liga
-# Plugins: yes. Roda depois de obter_fonte, pois a origem e o proprio repo.
+garantir_secoes_download() {
+    local cfg="$1" chave
+    for chave in AdditionalDepots DecryptionKeys; do
+        grep -qE "^[[:space:]]*$chave:" "$cfg" 2>/dev/null \
+            || printf '\n%s:\n' "$chave" >> "$cfg"
+    done
+}
+
 instalar_plugins_sls() {
     local origem="${FONTE:-}/sls-plugins"
     if [ ! -d "$origem" ]; then
@@ -493,11 +480,11 @@ instalar_plugins_sls() {
         mkdir -p "$dir/plugins"
         cp -f "$origem"/*.lua "$dir/plugins/"
         garantir_plugins_yes "$dir/config.yaml"
+        garantir_secoes_download "$dir/config.yaml"
         ok "plugins Lua em $dir/plugins (Plugins: yes)"
     done
 }
 
-# Lancador estilo h3adcr-b com o hook do nosso CloudRedirect BR junto.
 escrever_steam_cr() {
     local sh="$1" raiz
     raiz="$(cd "$(dirname "$sh")" && pwd)"
@@ -522,7 +509,6 @@ fi
 EOF
 }
 
-# Migracao pontual do formato antigo (bloco com marcadores) para o novo.
 despatch_steam() {
     local sh="$1"
     local tmp modo
@@ -695,8 +681,6 @@ main() {
     titulo "4/4  Plugins Lua do SLSsteam"
     instalar_plugins_sls
 
-    # O steam.sh precisa ser escrito depois do cloud_redirect.so existir em
-    # disco, senao o lancador referencia um hook ausente.
     local sh found=0
     for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh" \
               "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steam.sh"; do

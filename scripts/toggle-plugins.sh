@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Liga/desliga os plugins Lua sem instalar nem remover arquivos.
-# So alterna a chave Plugins do config.yaml do SLSsteam.
-#
-# Uso: ./scripts/toggle-plugins.sh on|off
 set -euo pipefail
 
 [ "${1:-}" = "on" ] || [ "${1:-}" = "off" ] \
