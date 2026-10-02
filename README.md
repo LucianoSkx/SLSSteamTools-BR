@@ -114,12 +114,21 @@ trava o CloudRedirect; `NotifyInit: yes`; e `LogLevels` com o bit
 no repositório, em 32 bits, e a implantação é a mesma que o botão **Instalar** da
 aba **Instalação** faz.
 
-**4. Plugins Lua** — copia os `.lua` de `sls-plugins/` (código de terceiros,
-fonte anônima) para `~/.config/SLSsteam/plugins/` e liga `Plugins: yes` no
-config. Sem o instalador de terceiros: sem headcrab, sem reinstalar o SLSsteam.
-Só os plugins, sem o resto: `scripts/install-plugins.sh` instala,
-`scripts/uninstall-plugins.sh` remove, `scripts/toggle-plugins.sh on|off`
-liga/desliga sem mexer nos arquivos.
+**4. Plugins Lua** — `download.lua` (baixa depots de `AdditionalDepots` e
+descriptografa com `DecryptionKeys`) e `spliced-tickets.lua` (compatibilidade
+com jogos com Steam DRM). Código de terceiros, fonte anônima; quebram quando o
+cliente Steam atualiza.
+
+Só os plugins, sem o resto (sem headcrab, sem reinstalar o SLSsteam):
+
+```sh
+# instalar (copia para ~/.config/SLSsteam/plugins/, liga Plugins: yes)
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install-plugins.sh | bash
+# remover (apaga só os dois deste repo)
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/uninstall-plugins.sh | bash
+# ligar/desligar sem mexer nos arquivos
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/toggle-plugins.sh | bash -s -- off
+```
 
 O `steam.sh` é substituído pelo lançador com o `LD_AUDIT` do SLSsteam e o
 `LD_PRELOAD` do `cloud_redirect.so`, com backup em `steam.sh.slssteam.bak` e
