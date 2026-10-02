@@ -117,6 +117,9 @@ aba **Instalação** faz.
 **4. Plugins Lua** — copia os `.lua` de `sls-plugins/` (código de terceiros,
 fonte anônima) para `~/.config/SLSsteam/plugins/` e liga `Plugins: yes` no
 config. Sem o instalador de terceiros: sem headcrab, sem reinstalar o SLSsteam.
+Só os plugins, sem o resto: `scripts/install-plugins.sh` instala,
+`scripts/uninstall-plugins.sh` remove, `scripts/toggle-plugins.sh on|off`
+liga/desliga sem mexer nos arquivos.
 
 O `steam.sh` é substituído pelo lançador com o `LD_AUDIT` do SLSsteam e o
 `LD_PRELOAD` do `cloud_redirect.so`, com backup em `steam.sh.slssteam.bak` e
