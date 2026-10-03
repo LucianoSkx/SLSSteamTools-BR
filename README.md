@@ -143,13 +143,14 @@ aplicam a processos novos — e abra o CloudRedirect pelo menu.
 | Opção | Efeito |
 |---|---|
 | `--skip-deps` | não instala dependências de sistema |
-| `--update-sls` | reinstala o SLSsteam na última release mesmo se já existir |
+| `--update-sls` | baixa de novo a última release do SLSsteam mesmo se já existir, sem comparar versão |
 | `--no-pin-client` | não trava nem rebaixa o cliente Steam (não recomendado) |
 | `--verbose` | mostra a saída de todos os comandos |
 | `--help` | mostra a ajuda |
 
 Rodar o instalador de novo atualiza tudo, exceto o SLSsteam quando já
-instalado — para puxar o mais novo sem apagar na mão:
+instalado — o script só puxa a última release, sem comparar versão. Para
+forçar baixar a mais nova sem apagar `~/.local/share/SLSsteam` manualmente:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install.sh | bash -s -- --update-sls
