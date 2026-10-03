@@ -8,13 +8,6 @@ Ferramentas para Steam no Linux, com a GUI em pt-BR. Três partes:
 | **[SLSsteam](https://github.com/AceSLS/SLSsteam)** | Libera Steam Cloud, tempo de jogo e conquistas em jogos não possuídos. |
 | **[CloudRedirect](https://github.com/LucianoSkx/SLSSteamTools-BR)** | Leva os saves para nuvem externa (Drive, OneDrive, S3, R2, pasta). |
 
-Fluxo: **psyche-BR** prepara → **SLSsteam** libera → **CloudRedirect** sincroniza.
-
-Fork de [Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect)
-via [swwayps/cloudredirect-moon](https://github.com/swwayps/cloudredirect-moon):
-GUI em pt-BR + instalador que deixa SLSsteam e CloudRedirect configurados entre
-si. Hook `cloud_redirect.so` 32 bits via `LD_PRELOAD`; SLSsteam via `LD_AUDIT`.
-
 ## Instalar
 
 ### 1. psyche-BR
