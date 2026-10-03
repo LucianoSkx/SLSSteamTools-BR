@@ -17,12 +17,23 @@ si. Hook `cloud_redirect.so` 32 bits via `LD_PRELOAD`; SLSsteam via `LD_AUDIT`.
 
 ## Instalar
 
-```sh
-# 1. psyche-BR — baixe o *-setup.zip, extraia e rode:
-https://github.com/LucianoSkx/psyche-BR/releases
-./install.sh
+### 1. psyche-BR
 
-# 2. SLSsteam + CloudRedirect + plugins Lua (obrigatórios):
+Baixe o `*-setup.zip`:
+
+```sh
+https://github.com/LucianoSkx/psyche-BR/releases
+```
+
+Extraia e rode:
+
+```sh
+./install.sh
+```
+
+### 2. SLSsteam + CloudRedirect + plugins Lua (obrigatórios)
+
+```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install.sh | bash
 ```
 
@@ -34,11 +45,23 @@ e instala os plugins Lua — `download.lua` e `spliced-tickets.lua` são
 
 Reinicie a Steam depois (os hooks só valem para processos novos).
 
-Reparar só os plugins:
+### Plugins: reparar
+
+Instalar:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install-plugins.sh | bash
+```
+
+Remover:
+
+```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/uninstall-plugins.sh | bash
+```
+
+Ligar/desligar:
+
+```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/toggle-plugins.sh | bash -s -- off
 ```
 
