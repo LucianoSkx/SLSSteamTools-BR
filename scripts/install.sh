@@ -11,8 +11,6 @@ DIR_APPS="$DIR_DADOS/applications"
 DIR_ICONS="$DIR_DADOS/icons/hicolor/256x256/apps"
 DIR_SLS="$DIR_DADOS/SLSsteam"
 DIR_CFG_SLS="$HOME/.config/SLSsteam"
-DIR_CFG_SLS_FLATPAK="$HOME/.var/app/com.valvesoftware.Steam/.config/SLSsteam"
-DIR_SLS_FLATPAK="$HOME/.var/app/com.valvesoftware.Steam/.local/share/SLSsteam"
 DIR_CR="$DIR_DADOS/CloudRedirect"
 DIR_CR_APP="$DIR_CR/app"
 DIR_CR_SRC="$DIR_CR/src"
@@ -88,7 +86,6 @@ eh_steamos() { ler_os; [ "${OS_ID:-}" = "steamos" ]; }
 eh_void() { ler_os; [ "${OS_ID:-}" = "void" ]; }
 eh_cachy() { ler_os; [ "${OS_ID:-}" = "cachyos" ]; }
 eh_bazzite() { ler_os; [ "${OS_ID:-}" = "bazzite" ]; }
-eh_flatpak() { [ -d "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam" ]; }
 
 url_manifesto() {
     local raiz="$1"
@@ -199,8 +196,7 @@ matar_steam() {
 
 raizes_steam() {
     local cand raiz
-    for cand in "$HOME/.steam/steam" "$HOME/.local/share/Steam" \
-               "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam"; do
+    for cand in "$HOME/.steam/steam" "$HOME/.local/share/Steam"; do
         [ -d "$cand" ] || continue
         raiz="$(realpath "$cand" 2>/dev/null || echo "$cand")"
         printf '%s\n' "$raiz"
@@ -243,13 +239,11 @@ remover_pacote_slssteam() {
 }
 
 desativar_wrapper_sls() {
-    local alvo
-    for alvo in "$DIR_SLS/path/steam" "$DIR_SLS_FLATPAK/path/steam"; do
-        if [ -e "$alvo" ] && [ ! -L "$alvo" ]; then
-            mv -f "$alvo" "$alvo.bak"
-            ok "wrapper do instalador oficial desativado ($alvo.bak)"
-        fi
-    done
+    local alvo="$DIR_SLS/path/steam"
+    if [ -e "$alvo" ] && [ ! -L "$alvo" ]; then
+        mv -f "$alvo" "$alvo.bak"
+        ok "wrapper do instalador oficial desativado ($alvo.bak)"
+    fi
 }
 
 travar_cliente_steam() {
@@ -298,13 +292,8 @@ travar_cliente_steam() {
         sleep 1
 
         local lancador
-        case "$raiz" in
-            *com.valvesoftware.Steam*)
-                lancador="flatpak run com.valvesoftware.Steam" ;;
-            *)
-                lancador="$(command -v steam || true)"
-                [ -n "$lancador" ] || die "comando steam nao encontrado no PATH" ;;
-        esac
+        lancador="$(command -v steam || true)"
+        [ -n "$lancador" ] || die "comando steam nao encontrado no PATH"
         run_cmd timeout 900 env -u LD_AUDIT -u LD_PRELOAD $lancador \
             -forcesteamupdate -forcepackagedownload \
             -overridepackageurl "$URL_DOWNGRADE" -exitsteam \
@@ -395,11 +384,6 @@ baixar_netsock() {
         ok "netsock ja presente"
     else
         baixar "$URL_NETSOCK" "$dir/netsock.so"
-    fi
-    if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-        local dir_fp="$HOME/.var/app/com.valvesoftware.Steam/.config/SLSsteam/tools/netsock"
-        mkdir -p "$dir_fp"
-        [ -s "$dir_fp/netsock.so" ] || cp -f "$dir/netsock.so" "$dir_fp/netsock.so"
     fi
 }
 
@@ -501,17 +485,10 @@ instalar_slssteam() {
             || die "o pacote do SLSsteam veio sem bin/SLSsteam.so"
 
         mesclar_config_sls "$DIR_CFG_SLS/config.yaml" "$TMP/sls/res/config.yaml"
-        if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-            mesclar_config_sls "$DIR_CFG_SLS_FLATPAK/config.yaml" "$TMP/sls/res/config.yaml"
-        fi
 
         mkdir -p "$DIR_SLS"
         cp -f "$TMP/sls/bin/"* "$DIR_SLS/"
         [ -s "$DIR_SLS/SLSsteam.so" ] || die "falha ao copiar o SLSsteam.so"
-        if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-            mkdir -p "$DIR_SLS_FLATPAK"
-            cp -f "$TMP/sls/bin/"* "$DIR_SLS_FLATPAK/"
-        fi
         ok "SLSsteam $tag instalado por extracao direta"
         printf '%s\n' "$tag" > "$DIR_SLS/version"
         ok "versao $tag registrada em $DIR_SLS/version (para o ASSella)"
@@ -531,10 +508,6 @@ instalar_slssteam() {
 
     liberar_cloud_no_sls "$DIR_CFG_SLS/config.yaml"
     ok "DisableCloud: no em $DIR_CFG_SLS/config.yaml"
-    if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-        liberar_cloud_no_sls "$DIR_CFG_SLS_FLATPAK/config.yaml"
-        ok "DisableCloud: no tambem no flatpak do Steam"
-    fi
 }
 
 garantir_plugins_yes() {
@@ -562,32 +535,17 @@ instalar_plugins_sls() {
         warn "pasta sls-plugins ausente em ${FONTE:-?}; pulando plugins Lua"
         return 0
     fi
-    local dir
-    for dir in "$DIR_CFG_SLS" "$DIR_CFG_SLS_FLATPAK"; do
-        if [ "$dir" = "$DIR_CFG_SLS_FLATPAK" ] && [ ! -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-            continue
-        fi
-        mkdir -p "$dir/plugins"
-        cp -f "$origem"/*.lua "$dir/plugins/"
-        garantir_plugins_yes "$dir/config.yaml"
-        garantir_secoes_download "$dir/config.yaml"
-        ok "plugins Lua em $dir/plugins (Plugins: yes)"
-    done
+    mkdir -p "$DIR_CFG_SLS/plugins"
+    cp -f "$origem"/*.lua "$DIR_CFG_SLS/plugins/"
+    garantir_plugins_yes "$DIR_CFG_SLS/config.yaml"
+    garantir_secoes_download "$DIR_CFG_SLS/config.yaml"
+    ok "plugins Lua em $DIR_CFG_SLS/plugins (Plugins: yes)"
 }
 
 escrever_steam_cr() {
-    local sh="$1" raiz tipo
+    local sh="$1" raiz
     raiz="$(cd "$(dirname "$sh")" && pwd)"
-    tipo="native"
-    case "$raiz" in
-        *com.valvesoftware.Steam*) tipo="flatpak" ;;
-    esac
     local cliente="$raiz/client.sh" sls_dir="$DIR_SLS" cr_so="$DIR_CR/cloud_redirect.so" log="$HOME/.SLSsteam.log"
-    if [ "$tipo" = "flatpak" ]; then
-        sls_dir="$DIR_SLS_FLATPAK"
-        cr_so="$HOME/.var/app/com.valvesoftware.Steam/.local/share/CloudRedirect/cloud_redirect.so"
-        log="$HOME/.var/app/com.valvesoftware.Steam/.SLSsteam.log"
-    fi
     cat > "$sh" <<EOF
 #!/usr/bin/env bash
 # Gerado pelo instalador SLSsteam + CloudRedirect pt-BR (modo h3adcr-b, variante CR).
@@ -597,7 +555,6 @@ STEAM_CLIENT="$cliente"
 INJECT_SLS="LD_AUDIT=$sls_dir/library-inject.so:$sls_dir/SLSsteam.so"
 INJECT_CR="LD_PRELOAD=$cr_so"
 SLS_LOG="$log"
-FlatpakSteamInstallDir=\$HOME/.var/app/com.valvesoftware.Steam/.steam/steam
 SteamInstallDir=\$HOME/.steam/steam
 read_os_release() {
     local f
@@ -615,7 +572,6 @@ steamoscheck() { read_os_release; [ "\$OS_ID" = "steamos" ]; }
 voidcheck() { read_os_release; [ "\$OS_ID" = "void" ]; }
 cachyoscheck() { read_os_release; [ "\$OS_ID" = "cachyos" ]; }
 bazzitecheck() { read_os_release; [ "\$OS_ID" = "bazzite" ]; }
-flatpakcheck() { [ -d "\$FlatpakSteamInstallDir" ]; }
 SteamOSClientCheck() {
     if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
         versionnumber=\$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print \$4}')
@@ -660,16 +616,6 @@ CachyClientCheck() {
     fi
     echo "SteamClientType: CachyOS"
 }
-FlatpakClientCheck() {
-    if [ -f "steam_client_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable"
-    else
-        versionnumber=\$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta"
-    fi
-    echo "SteamClientType: Flatpak"
-}
 NativeClientCheck() {
     if [ -f "steam_client_ubuntu12.manifest" ]; then
         versionnumber=\$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print \$4}')
@@ -691,11 +637,7 @@ VoidClientCheck() {
     echo "SteamClientType: Void"
 }
 wheresteampackage() {
-    if [ -d "\$FlatpakSteamInstallDir" ]; then
-        cd \$FlatpakSteamInstallDir/package
-    else
-        cd \$SteamInstallDir/package
-    fi
+    cd \$SteamInstallDir/package
     echo "" &> /dev/null
 }
 CheckClientInfo() {
@@ -709,8 +651,6 @@ CheckClientInfo() {
         CachyClientCheck
     elif voidcheck; then
         VoidClientCheck
-    elif flatpakcheck; then
-        FlatpakClientCheck
     else
         NativeClientCheck
     fi
@@ -834,14 +774,6 @@ instalar_cloudredirect() {
         install -m 755 "$DIR_CR_APP/$arq" "$DIR_CR/$arq"
     done
     ok "CloudRedirect implantado em $DIR_CR"
-    if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-        local dir_cr_flatpak="$HOME/.var/app/com.valvesoftware.Steam/.local/share/CloudRedirect"
-        mkdir -p "$dir_cr_flatpak"
-        for arq in cloud_redirect.so cloud_redirect_cli; do
-            install -m 755 "$DIR_CR_APP/$arq" "$dir_cr_flatpak/$arq"
-        done
-        ok "CloudRedirect espelhado em $dir_cr_flatpak (Steam flatpak)"
-    fi
 
     mkdir -p "$DIR_ICONS"
     for tam in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
@@ -936,8 +868,7 @@ main() {
     instalar_plugins_sls
 
     local sh found=0
-    for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh" \
-              "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steam.sh"; do
+    for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
         if patch_steam "$sh"; then found=1; fi
     done
     [ "$found" = 1 ] || warn "steam.sh nao encontrado; a Steam nao sera hookada"

@@ -129,7 +129,6 @@ main() {
     titulo "2/3  SLSsteam"
     despatch_steam "$HOME/.local/share/Steam/steam.sh"
     despatch_steam "$HOME/.steam/steam/steam.sh"
-    despatch_steam "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steam.sh"
     rm -f "$HOME/.local/share/Steam/steam.sh.slssteam.bak" \
           "$HOME/.steam/steam/steam.sh.slssteam.bak"
     rm -rf "$HOME/.headcrab"
@@ -138,6 +137,9 @@ main() {
     rm -rf "$DIR_SLS"
     ok "binarios e wrapper removidos de $DIR_SLS"
     aviso "o config $HOME/.config/SLSsteam foi preservado"
+    rm -rf "$HOME/.var/app/com.valvesoftware.Steam/.local/share/SLSsteam" \
+           "$HOME/.var/app/com.valvesoftware.Steam/.local/share/CloudRedirect"
+    ok "restos do flatpak removidos (config do flatpak preservado)"
 
     titulo "3/3  Menu"
     if command -v update-desktop-database >/dev/null 2>&1; then

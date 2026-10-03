@@ -10,7 +10,6 @@ case "$1" in
 esac
 
 NATIVE_CONFIG_DIR="$HOME/.config/SLSsteam"
-FLATPAK_CONFIG_DIR="$HOME/.var/app/com.valvesoftware.Steam/.config/SLSsteam"
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
 ok()   { printf "${c_green}[ ok ]${c_reset} %s\n" "$*"; }
@@ -18,9 +17,6 @@ warn() { printf "${c_yellow}[aviso]${c_reset} %s\n" "$*" >&2; }
 
 config_dirs() {
     printf '%s\n' "$NATIVE_CONFIG_DIR"
-    if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-        printf '%s\n' "$FLATPAK_CONFIG_DIR"
-    fi
 }
 
 alternar() {

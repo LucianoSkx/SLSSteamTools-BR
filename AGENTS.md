@@ -15,7 +15,7 @@ Instalador SLSsteam + CloudRedirect (pt-BR, modo h3adcr-b). Bash + Qt6/C++ + Lua
 - Sem comentários no código (shebang e corpos de heredoc preservados)
 - Scripts standalone: autocontidos, sem depender de checkout (fallback para `raw.githubusercontent.com/.../$BRANCH/...`, `BRANCH="${CR_BRANCH:-master}"`)
 - Edição de config do usuário: idempotente (nunca duplica chave), preserva chaves existentes, backup antes (`config.yaml.bak`, `config.yaml.instbackup-*`, `steam.sh.slssteam.bak`)
-- Sempre cobrir Steam nativo (`~/.config/SLSsteam`, `~/.local/share/...`) + Flatpak (`~/.var/app/com.valvesoftware.Steam/...`, só quando o prefixo existe)
+- Somente Steam nativo (`~/.config/SLSsteam`, `~/.local/share/...`); sem suporte a Steam flatpak
 - SLSsteam espera `Plugins: yes/no` (não `on/off`); `download.lua` exige seções `AdditionalDepots:` e `DecryptionKeys:` (vazias bastam)
 
 ## Docs

@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
 NATIVE_CONFIG_DIR="$HOME/.config/SLSsteam"
-FLATPAK_CONFIG_DIR="$HOME/.var/app/com.valvesoftware.Steam/.config/SLSsteam"
 REPO_RAW="https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR"
 BRANCH="${CR_BRANCH:-master}"
 FILES="download.lua spliced-tickets.lua"
@@ -15,9 +14,6 @@ die()  { echo "[erro] $*" >&2; exit 1; }
 
 config_dirs() {
     printf '%s\n' "$NATIVE_CONFIG_DIR"
-    if [ -d "$HOME/.var/app/com.valvesoftware.Steam" ]; then
-        printf '%s\n' "$FLATPAK_CONFIG_DIR"
-    fi
 }
 
 garantir_plugins_yes() {
