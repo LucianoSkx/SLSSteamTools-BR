@@ -31,6 +31,7 @@ URL_DOWNGRADE="http://localhost:1666/"
 
 MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
 FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
+MARCA_PROPRIA="Gerado pelo instalador SLSsteam + CloudRedirect pt-BR"
 
 REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
 CR_BRANCH="${CR_BRANCH:-master}"
@@ -752,7 +753,9 @@ patch_steam() {
     local sh="$1"
     [ -f "$sh" ] || return 1
 
-    if grep -q "$MARCADOR_SLS" "$sh"; then
+    if grep -q "$MARCA_PROPRIA" "$sh"; then
+        info "atualizando o lancador em $sh"
+    elif grep -q "$MARCADOR_SLS" "$sh"; then
         warn "removendo patch antigo com marcadores de $sh"
         despatch_steam "$sh"
     elif grep -q 'LD_AUDIT' "$sh" && grep -q 'SLSsteam\.so' "$sh"; then

@@ -3,6 +3,7 @@ set -euo pipefail
 
 MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
 FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
+MARCA_PROPRIA="Gerado pelo instalador SLSsteam + CloudRedirect pt-BR"
 
 DIR_DADOS="$HOME/.local/share"
 DIR_APPS="$DIR_DADOS/applications"
@@ -86,7 +87,11 @@ despatch_steam() {
     grep -q 'LD_AUDIT' "$sh" && grep -q 'SLSsteam\.so' "$sh" || return 0
 
     if ! grep -q "$MARCADOR_SLS" "$sh"; then
-        aviso "$sh tem um patch do SLSsteam de outra ferramenta; preservado como esta"
+        if grep -q "$MARCA_PROPRIA" "$sh"; then
+            aviso "$sh tem o lancador deste instalador mas sem backup; mantido como esta"
+        else
+            aviso "$sh tem um patch do SLSsteam de outra ferramenta; preservado como esta"
+        fi
         return 0
     fi
 
