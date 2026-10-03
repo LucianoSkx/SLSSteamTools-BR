@@ -313,6 +313,7 @@ mesclar_config_sls() {
     [ -f "$modelo" ] || return 0
     grep -q '^DisableFamilyShareLock:' "$modelo" \
         || { warn "modelo de config invalido; mantido o atual"; return 0; }
+    mkdir -p "$(dirname "$cfg")"
     [ -f "$cfg" ] || { cp "$modelo" "$cfg"; return 0; }
 
     tmp_cfg="$(mktemp "${cfg}.tmp.XXXXXX")" || return 0
