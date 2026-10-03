@@ -1,4 +1,4 @@
-# CloudRedirect BR
+# SLSSteamTools-BR
 
 Ferramentas para Steam no Linux, com a GUI em pt-BR. Três partes:
 
@@ -6,7 +6,7 @@ Ferramentas para Steam no Linux, com a GUI em pt-BR. Três partes:
 |---|---|
 | **[psyche-BR](https://github.com/LucianoSkx/psyche-BR)** | Busca pacotes na Hubcap e mescla no `config.yaml` do SLSsteam. |
 | **[SLSsteam](https://github.com/AceSLS/SLSsteam)** | Libera Steam Cloud, tempo de jogo e conquistas em jogos não possuídos. |
-| **[CloudRedirect](https://github.com/LucianoSkx/cloudredirect-BR)** | Leva os saves para nuvem externa (Drive, OneDrive, S3, R2, pasta). |
+| **[CloudRedirect](https://github.com/LucianoSkx/SLSSteamTools-BR)** | Leva os saves para nuvem externa (Drive, OneDrive, S3, R2, pasta). |
 
 Fluxo: **psyche-BR** prepara → **SLSsteam** libera → **CloudRedirect** sincroniza.
 
@@ -23,7 +23,7 @@ https://github.com/LucianoSkx/psyche-BR/releases
 ./install.sh
 
 # 2. SLSsteam + CloudRedirect + plugins Lua (obrigatórios):
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install.sh | bash
 ```
 
 O passo 2 trava o cliente Steam na versão compatível (via dgsc, modo
@@ -37,9 +37,9 @@ Reinicie a Steam depois (os hooks só valem para processos novos).
 Reparar só os plugins:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/install-plugins.sh | bash
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/uninstall-plugins.sh | bash
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/toggle-plugins.sh | bash -s -- off
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install-plugins.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/uninstall-plugins.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/toggle-plugins.sh | bash -s -- off
 ```
 
 Opções: `--update-sls` (força última release), `--no-pin-client` (não trava o
@@ -48,7 +48,7 @@ cliente), `--skip-deps`, `--verbose`.
 ## Remover
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/uninstall.sh | bash -s -- --yes
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/uninstall.sh | bash -s -- --yes
 ```
 
 Restaura o `steam.sh` do backup e apaga binários, GUI e entradas de menu.
@@ -109,4 +109,4 @@ Segue a licença do upstream. Ver [LICENSE](LICENSE).
 
 ## Support
 
-Issues: https://github.com/LucianoSkx/cloudredirect-BR/issues
+Issues: https://github.com/LucianoSkx/SLSSteamTools-BR/issues

@@ -32,7 +32,7 @@ URL_DOWNGRADE="http://localhost:1666/"
 MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
 FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
 
-REPO_CR="https://github.com/LucianoSkx/cloudredirect-BR.git"
+REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
 CR_BRANCH="${CR_BRANCH:-master}"
 
 SKIP_DEPS="${CR_INSTALL_SKIP_DEPS:-0}"
@@ -717,7 +717,7 @@ CheckClientInfo() {
     echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
     cat "\$SLS_LOG" 2>/dev/null || true
     echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    command -v notify-send >/dev/null 2>&1 && notify-send -a "cloudredirect-BR" "SLSsteam + CloudRedirect" "Client: \$versionnumber" & sleep 1s || true
+    command -v notify-send >/dev/null 2>&1 && notify-send -a "SLSSteamTools-BR" "SLSsteam + CloudRedirect" "Client: \$versionnumber" & sleep 1s || true
 }
 GameLauncher() {
     CheckClientInfo

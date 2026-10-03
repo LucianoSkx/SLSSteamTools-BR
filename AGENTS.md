@@ -1,4 +1,4 @@
-# cloudredirect-BR
+# slssteamtools-BR
 
 Instalador SLSsteam + CloudRedirect (pt-BR, modo h3adcr-b). Bash + Qt6/C++ + Lua de terceiros.
 
