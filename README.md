@@ -35,8 +35,8 @@ Steam via `LD_PRELOAD`. O SLSsteam é quem entra por `LD_AUDIT`.
 ## Requisitos
 
 - Linux x86_64 com Steam
-- distro com `pacman`, `apt` ou `dnf` (as dependências são instaladas pelo
-  script)
+- distro com `pacman`, `apt`, `dnf` ou `xbps` (as dependências são instaladas pelo
+  script; no Debian/Ubuntu inclui `libcurl4:i386`, no Void via `xbps`)
 - compilador e Qt6, se for instalar o CloudRedirect — o script compila a GUI
 - `libfuse2` (no Arch, `fuse2`) para o AppImage do ASSella — pelo pacote do
   Arch ele vem automático
@@ -98,21 +98,27 @@ com o CloudRedirect desta fork no lugar do flatpak deles):
 compatível com o SLSsteam. Se divergir, encerra a Steam e rebaixa o cliente
 pelo servidor de depot local (dgsc), e grava o `steam.cfg` com
 `BootStrapperInhibitAll=enable` para a Steam não se autoatualizar e quebrar
-o hook. Para pular essa trava: `--no-pin-client`.
+o hook. O manifesto segue o h3adcr-b: deck (`steamdeck_stable`) no SteamOS e,
+no Bazzite/CachyOS, deck quando o `.installed` do deck existe, senão o
+`ubuntu12`. Para pular essa trava: `--no-pin-client`.
 
 **2. SLSsteam** — baixa a release oficial do
 [AceSLS/SLSsteam](https://github.com/AceSLS/SLSsteam) e instala por extração
 direta dos binários 32 bits (sem o `setup.sh` oficial, sem wrapper
 `path/steam`). O `config.yaml` existente é mesclado com o novo modelo
 preservando as suas chaves (backup em `config.yaml.instbackup-*`), e o script
-garante três coisas: `DisableCloud: no`, porque o padrão `yes` do upstream
-trava o CloudRedirect; `NotifyInit: yes`; e `LogLevels` com o bit
-`NotifyShort`, que é o que faz o SLSsteam avisar que carregou.
+garante `DisableCloud: no`, porque o padrão `yes` do upstream trava o
+CloudRedirect. O resto do config segue o h3adcr-b por distro: no SteamOS
+`SafeMode: yes`; no CachyOS `SafeMode: no` com `LogLevels: 0x3f`; nas demais
+`SafeMode: no` com o bit `NotifyShort` somado ao `LogLevels`. `NotifyInit: yes`
+sempre, que é o que faz o SLSsteam avisar que carregou.
 
 **3. CloudRedirect** — compila a interface Qt6 desta fork, instala o
 `cloud_redirect.so` e a CLI, e cria a entrada de menu. O `.so` já vem commitado
 no repositório, em 32 bits, e a implantação é a mesma que o botão **Instalar** da
-aba **Instalação** faz.
+aba **Instalação** faz. Com Steam flatpak o `.so` e a CLI são espelhados em
+`~/.var/app/com.valvesoftware.Steam/.local/share/CloudRedirect/`, que é o
+caminho que o lançador flatpak injeta.
 
 **4. Plugins Lua** — `download.lua` (baixa depots de `AdditionalDepots` e
 descriptografa com `DecryptionKeys`) e `spliced-tickets.lua` (compatibilidade
@@ -130,10 +136,14 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/cloudredirect-BR/master/scripts/toggle-plugins.sh | bash -s -- off
 ```
 
-O `steam.sh` é substituído pelo lançador com o `LD_AUDIT` do SLSsteam e o
-`LD_PRELOAD` do `cloud_redirect.so`, com backup em `steam.sh.slssteam.bak` e
-modo `555`. Um patch antigo com marcadores é migrado, um de outra ferramenta
-é substituído com aviso.
+O `steam.sh` é substituído pelo lançador no estilo do h3adcr-b (variante CR):
+`GameLauncher` com `CheckClientInfo` por distro, `notify-send` com a versão do
+cliente e `export` do `LD_AUDIT` do SLSsteam junto do `LD_PRELOAD` do
+`cloud_redirect.so`, com backup em `steam.sh.slssteam.bak` e modo `555`
+(`client.sh` com `+x`). Caminhos nativo/flatpak resolvidos por raiz: no flatpak
+o `LD_AUDIT` e o `LD_PRELOAD` apontam para dentro de
+`~/.var/app/com.valvesoftware.Steam/`. Um patch antigo com marcadores é
+migrado, um de outra ferramenta é substituído com aviso.
 
 Depois de instalar, **reinicie a Steam** — `LD_AUDIT` e `LD_PRELOAD` só se
 aplicam a processos novos — e abra o CloudRedirect pelo menu.
@@ -225,6 +235,9 @@ Só a interface (`ui-linux/`) é compilada direto no host, com Qt6.
   CloudRedirect original, e o hook que esta fork usa
 - [AceSLS](https://github.com/AceSLS/SLSsteam) — o SLSsteam e o `setup.sh` que o
   instalador executa
+- [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — o h3adcr-b, de onde vêm
+  o travamento do cliente via dgsc, o `client.sh`, o merge do `config.yaml`, o
+  ajuste por distro e o formato do lançador `steam.sh`
 - [swwayps](https://github.com/swwayps) — o `cloudredirect-moon`, de onde vieram
   o hook de 32 bits e a GUI em Qt6
 
