@@ -58,19 +58,6 @@ Ligar/desligar:
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/toggle-plugins.sh | bash -s -- off
 ```
 
-Bloquear depots de um jogo (mods que a Steam restauraria):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/block-depots.sh | bash -s -- list
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/block-depots.sh | bash -s -- block "chrono trigger"
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/block-depots.sh | bash -s -- unblock "chrono trigger"
-```
-
-O `block` estaciona as entradas como comentário (o lua ignora, chaves preservadas); `unblock` devolve.
-
-Opções: `--update-sls` (força última release), `--no-pin-client` (não trava o
-cliente), `--skip-deps`, `--verbose`.
-
 ## Diagnóstico
 
 Coleta logs da Steam, SLSsteam e CloudRedirect, remove dados pessoais e sobe
