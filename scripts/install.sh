@@ -462,7 +462,7 @@ garantir_notificacao_sls() {
 }
 
 instalar_slssteam() {
-    if [ "$UPDATE_SLS" != "1" ] && [ -f "$DIR_SLS/SLSsteam.so" ] && [ -s "$DIR_SLS/library-inject.so" ]; then
+    if [ "$UPDATE_SLS" != "1" ] && [ -s "$DIR_SLS/SLSsteam.so" ]; then
         ok "SLSsteam ja presente em $DIR_SLS"
     else
         local SEVENZ
@@ -490,7 +490,7 @@ instalar_slssteam() {
         mkdir -p "$DIR_SLS"
         cp -f "$TMP/sls/bin/"* "$DIR_SLS/"
         [ -s "$DIR_SLS/SLSsteam.so" ] || die "falha ao copiar o SLSsteam.so"
-        [ -s "$DIR_SLS/library-inject.so" ] || die "library-inject.so veio vazio/ausente do pacote; o LD_AUDIT nao carregaria o SLSsteam"
+        [ -s "$DIR_SLS/library-inject.so" ] || warn "library-inject.so veio vazio do pacote upstream; ele sera omitido do LD_AUDIT"
         ok "SLSsteam $tag instalado por extracao direta"
         printf '%s\n' "$tag" > "$DIR_SLS/version"
         ok "versao $tag registrada em $DIR_SLS/version (para o ASSella)"
@@ -548,13 +548,16 @@ escrever_steam_cr() {
     local sh="$1" raiz
     raiz="$(cd "$(dirname "$sh")" && pwd)"
     local cliente="$raiz/client.sh" sls_dir="$DIR_SLS" cr_so="$DIR_CR/cloud_redirect.so" log="$HOME/.SLSsteam.log"
+    local inj="$sls_dir/SLSsteam.so"
+    [ -s "$sls_dir/library-inject.so" ] && inj="$sls_dir/library-inject.so:$inj"
+    local INJECT_SLS="LD_AUDIT=$inj"
     cat > "$sh" <<EOF
 #!/usr/bin/env bash
 # Gerado pelo instalador SLSsteam + CloudRedirect pt-BR (modo h3adcr-b, variante CR).
 # O steam.sh original esta em steam.sh.slssteam.bak; o scripts/uninstall.sh
 # do repositorio restaura tudo.
 STEAM_CLIENT="$cliente"
-INJECT_SLS="LD_AUDIT=$sls_dir/library-inject.so:$sls_dir/SLSsteam.so"
+INJECT_SLS="$INJECT_SLS"
 INJECT_CR="LD_PRELOAD=$cr_so"
 SLS_LOG="$log"
 SteamInstallDir=\$HOME/.steam/steam
