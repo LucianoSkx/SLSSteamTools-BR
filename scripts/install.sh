@@ -462,7 +462,7 @@ garantir_notificacao_sls() {
 }
 
 instalar_slssteam() {
-    if [ "$UPDATE_SLS" != "1" ] && [ -f "$DIR_SLS/SLSsteam.so" ]; then
+    if [ "$UPDATE_SLS" != "1" ] && [ -f "$DIR_SLS/SLSsteam.so" ] && [ -s "$DIR_SLS/library-inject.so" ]; then
         ok "SLSsteam ja presente em $DIR_SLS"
     else
         local SEVENZ
@@ -490,6 +490,7 @@ instalar_slssteam() {
         mkdir -p "$DIR_SLS"
         cp -f "$TMP/sls/bin/"* "$DIR_SLS/"
         [ -s "$DIR_SLS/SLSsteam.so" ] || die "falha ao copiar o SLSsteam.so"
+        [ -s "$DIR_SLS/library-inject.so" ] || die "library-inject.so veio vazio/ausente do pacote; o LD_AUDIT nao carregaria o SLSsteam"
         ok "SLSsteam $tag instalado por extracao direta"
         printf '%s\n' "$tag" > "$DIR_SLS/version"
         ok "versao $tag registrada em $DIR_SLS/version (para o ASSella)"
