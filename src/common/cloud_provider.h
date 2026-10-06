@@ -88,7 +88,7 @@ public:
 
     virtual bool ListSubfoldersChecked(const std::string& prefix,
                                        std::vector<std::string>& outFolders,
-                                       bool* outComplete = nullptr) {
+                                       bool* outComplete) {
         std::vector<FileInfo> files;
         bool complete = false;
         if (!ListChecked(prefix, files, &complete)) {

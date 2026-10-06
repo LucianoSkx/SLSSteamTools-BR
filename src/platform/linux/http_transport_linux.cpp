@@ -281,14 +281,14 @@ public:
                                const std::string& path, const std::string& body,
                                const std::vector<std::string>& headers) override {
         std::string url = Scheme() + host + path;
-        return CurlRequest(m_logTag, method, url, body, headers, 30L, true, nullptr,
+        return CurlRequest(m_logTag, method, url, body, headers, 8L, true, nullptr,
                            false, &m_opts);
     }
 
     HttpUtil::HttpResp RequestUrl(const char* method, const std::string& fullUrl,
                                    const std::string& body,
                                    const std::vector<std::string>& headers) override {
-        return CurlRequest(m_logTag, method, fullUrl, body, headers, 60L, true, nullptr,
+        return CurlRequest(m_logTag, method, fullUrl, body, headers, 15L, true, nullptr,
                            false, &m_opts);
     }
 
@@ -298,10 +298,10 @@ public:
         std::string url = Scheme() + host + path;
         std::vector<std::string> hdrs = {authHeader};
         std::string location;
-        auto resp = CurlRequest(m_logTag, "GET", url, {}, hdrs, 30L, true, &location,
+        auto resp = CurlRequest(m_logTag, "GET", url, {}, hdrs, 8L, true, &location,
                                 false, &m_opts);
         if (resp.status >= 300 && resp.status < 400 && !location.empty())
-            return CurlRequest(m_logTag, "GET", location, {}, {}, 60L, false, nullptr,
+            return CurlRequest(m_logTag, "GET", location, {}, {}, 15L, false, nullptr,
                                /*followRedirects=*/true, &m_opts);
         return resp;
     }

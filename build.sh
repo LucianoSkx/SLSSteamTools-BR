@@ -27,6 +27,11 @@ echo "==> building builder image ($IMAGE)"
 echo "==> building 32-bit CloudRedirect hook + CLI in container (sha $GIT_SHA)"
 "$runtime" run --rm -v "$HERE":/build:Z -w /build "$IMAGE" bash -c "
   set -e
+  # The 2.6.6 CMake wants vendored static deps at deps/install32; point that
+  # at the system 32-bit static libs installed in the builder image.
+  mkdir -p deps/install32
+  ln -sfn /usr/lib/i386-linux-gnu deps/install32/lib
+  ln -sfn /usr/include/i386-linux-gnu deps/install32/include
   cmake -S . -B build -DLINUX_32BIT=ON -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12 \
         -DCR_GIT_SHA=$GIT_SHA >/dev/null

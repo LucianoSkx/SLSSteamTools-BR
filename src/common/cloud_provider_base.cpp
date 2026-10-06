@@ -233,7 +233,7 @@ HttpResp CloudProviderBase::ApiRequest(const char* method, const std::string& pa
                                         const std::string& contentType) {
     // Exponential backoff with jitter: base 1s, factor 2x, up to 5 attempts.
     // Retries on rate-limit (429 / 403+rateLimitExceeded) AND timeout (HTTP 0).
-    static constexpr int kMaxAttempts = 5;
+    static constexpr int kMaxAttempts = 3;
     static thread_local std::mt19937 rng{std::random_device{}()};
 
     HttpResp lastResp;
