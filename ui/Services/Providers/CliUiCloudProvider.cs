@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 
 namespace CloudRedirect.Services.Providers;
@@ -231,10 +230,6 @@ internal sealed class CliUiCloudProvider : IUiCloudProvider
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    // CLI emits UTF-8 JSON; without this .NET decodes via the ANSI
-                    // codepage and non-ASCII paths break the parse on e.g. CP936.
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8,
                     CreateNoWindow = true,
                 }
             };

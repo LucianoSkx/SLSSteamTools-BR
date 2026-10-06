@@ -148,7 +148,6 @@ private:
                    QString &program, QStringList &args) const;
     bool switchActiveProvider(const QString &provider);
     void handleMigrationLine(const QByteArray &line);
-    void appendCliLog(const QString &context, const QString &text) const;
     void loadConfig();
     void loadSLSsteamApps();
     void resolvePackageApps();
@@ -204,7 +203,6 @@ private:
     QProcess *m_migrateProc = nullptr;    // in-flight `migrate`
     QProcess *m_testProc = nullptr;       // in-flight connection test
     QByteArray m_migrateBuf;              // partial NDJSON line buffer
-    QByteArray m_migrateErr;              // CLI stderr, kept for the log
     QString m_migrateSrc;
     QString m_migrateDst;
     bool m_migrateCancelled = false;

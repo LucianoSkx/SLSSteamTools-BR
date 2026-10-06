@@ -13,7 +13,6 @@ RUN dpkg --add-architecture i386 \
       ca-certificates git \
       cmake make \
       g++-12 gcc-12 g++-12-multilib gcc-12-multilib \
-      libcurl4-openssl-dev:i386 libssl-dev:i386 zlib1g-dev:i386 \
       libc6-dev-i386 linux-libc-dev linux-libc-dev:i386 \
  && rm -rf /var/lib/apt/lists/*
 

@@ -141,15 +141,8 @@ static bool RefreshCloudBlobCache() {
             else
                 ++it;
         }
-        // Log only on change: the account blob stays contaminated between pulls, so
-        // an unconditional log here repeats on every poll (once a minute, forever).
-        static size_t lastBefore = SIZE_MAX, lastAfter = SIZE_MAX;
-        if (fetched.size() != before &&
-            (before != lastBefore || fetched.size() != lastAfter)) {
+        if (fetched.size() != before)
             LOG("[Stats] Cloud blob decontamination: %zu -> %zu app(s)", before, fetched.size());
-            lastBefore = before;
-            lastAfter = fetched.size();
-        }
     }
     static bool firstRefresh = true;
     size_t prevCount = g_cloudBlobByApp.size();
@@ -752,9 +745,7 @@ static bool ImportNativeStats(uint32_t appId, AppStats& out,
                               std::istreambuf_iterator<char>());
         }
         // Refresh schema from Steam's server (picks up newly-added achievements).
-        // Only when achievement sync is enabled.
-        if (g_schemaMissingCb &&
-            MetadataSync::syncAchievements.load(std::memory_order_relaxed))
+        if (g_schemaMissingCb)
             g_schemaMissingCb(appId);
     }
 
@@ -1664,9 +1655,6 @@ void SaveAppStats(uint32_t appId, const AppStats& stats) {
 
 // Import native stats if absent. Retries until accountId is ready. Caller holds mutex.
 static void EnsureNativeImportLocked(uint32_t appId, AppStats& stats) {
-    if (!MetadataSync::syncAchievements.load(std::memory_order_relaxed) &&
-        !MetadataSync::syncPlaytime.load(std::memory_order_relaxed))
-        return;
     // Also retry if we have data but no schema (required to serve achievements).
     if (!stats.stats.empty() && !stats.schema.empty()) return;
     // Retry if schema is still missing (may have been written after first try).
@@ -1688,17 +1676,14 @@ static void EnsureNativeImportLocked(uint32_t appId, AppStats& stats) {
             schemaAdopted = true;
         }
         // Merge (not overwrite) -- cloud may hold more unlocks than native.
-        // Only merge achievement/stat data when syncAchievements is on.
-        bool syncAch = MetadataSync::syncAchievements.load(std::memory_order_relaxed);
         size_t haveBefore = CountUnlockedAchievements(stats.achievements);
         size_t nativeHas  = CountUnlockedAchievements(native.achievements);
         bool merged = false;
-        if (syncAch && !native.achievements.empty())
+        if (!native.achievements.empty())
             merged |= MergeAchievements(stats.achievements, native.achievements);
-        if (syncAch && !native.stats.empty())
+        if (!native.stats.empty())
             merged |= MergeStatValues(stats.stats, native.stats);
-        if (syncAch)
-            merged |= ReconcileAchievementBits(stats.stats, stats.achievements);
+        merged |= ReconcileAchievementBits(stats.stats, stats.achievements);
         size_t haveAfter = CountUnlockedAchievements(stats.achievements);
         // If cloud (haveBefore) held more than native, the merge must keep the
         // superset -- haveAfter dropping below haveBefore means an unlock was lost.
@@ -2054,9 +2039,8 @@ void SeedApps(const std::vector<uint32_t>& appIds) {
         if (!IsEligible(appId)) continue;
         GetOrCreate(appId);  // merges cached cloud blob + imports native + loads local
     }
-    // Write .bin files for SLSsteam's NO_CONNECTION fallback — only when
-    // achievement sync is on (the .bin carries achievement state, not playtime).
-    if (MetadataSync::syncAchievements.load(std::memory_order_relaxed)) {
+    // Write .bin files for SLSsteam's NO_CONNECTION fallback.
+    {
         std::lock_guard<std::mutex> lock(g_mutex);
         for (uint32_t appId : appIds) {
             if (appId == 0) continue;
@@ -2174,11 +2158,10 @@ std::vector<uint32_t> RefreshFromCloud(const std::vector<uint32_t>& appIds) {
         MergePlaytime(cur.playtime, cloudStats.playtime);
         // Achievements/stats are monotonic across devices -- union-merge them too,
         // not just playtime, or a cloud unlock is dropped and the next local push
-        // overwrites it on the cloud. Only when syncAchievements is on.
-        bool syncAch = MetadataSync::syncAchievements.load(std::memory_order_relaxed);
-        bool achChanged = syncAch && MergeAchievements(cur.achievements, cloudStats.achievements);
-        bool statChanged = syncAch && MergeStatValues(cur.stats, cloudStats.stats);
-        if (syncAch && ReconcileAchievementBits(cur.stats, cur.achievements)) { achChanged = true; statChanged = true; }
+        // overwrites it on the cloud.
+        bool achChanged = MergeAchievements(cur.achievements, cloudStats.achievements);
+        bool statChanged = MergeStatValues(cur.stats, cloudStats.stats);
+        if (ReconcileAchievementBits(cur.stats, cur.achievements)) { achChanged = true; statChanged = true; }
         bool playtimeChanged = (cur.playtime.minutesForever != before.minutesForever ||
                                 cur.playtime.lastPlayedTime != before.lastPlayedTime);
         // Another device advanced this app -> persist locally and report.
@@ -2383,9 +2366,7 @@ static bool EndSessionLocked(uint32_t appId) {
     g_dirty[appId] = true;
     SaveAppStats(appId, stats);   // updates account blob + dirty flag
     g_dirty[appId] = false;
-    // Only write back to Steam's native .bin when achievement sync is on.
-    if (MetadataSync::syncAchievements.load(std::memory_order_relaxed))
-        ExportNativeStats(appId, stats);
+    ExportNativeStats(appId, stats);
     LOG("[Stats] Session ended for app %u: +%u min (total %u)",
         appId, minutes, stats.playtime.minutesForever);
     return true;
