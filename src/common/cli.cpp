@@ -139,20 +139,6 @@ static std::string JsonSuccess() {
     return JsonObject({{"success", JsonBool(true)}});
 }
 
-static bool ListProviderSubfolders(ICloudProvider* provider,
-                                   const std::string& providerName,
-                                   const std::string& prefix,
-                                   std::vector<std::string>& folders) {
-    // Drive providers have optimized shallow implementations. Keep those for
-    // the CLI scan; their recursive ListChecked path is intentionally heavier.
-    if (providerName == "gdrive" || providerName == "onedrive") {
-        folders = provider->ListSubfolders(prefix);
-        return true;
-    }
-    bool complete = false;
-    return provider->ListSubfoldersChecked(prefix, folders, &complete) && complete;
-}
-
 std::string CmdAuthStatus(const std::string& provider) {
     std::string tokenPath = GetTokenPath(provider);
     if (tokenPath.empty()) {
@@ -203,9 +189,9 @@ std::string CmdListRemoteApps(const std::string& provider, const std::string& ac
     // List app folders first, then per-app stats (avoids heavy recursive listing).
     std::string prefix = accountId + "/";
     std::vector<std::string> appIds;
-    if (!ListProviderSubfolders(prov.get(), provider, prefix, appIds)) {
+    if (!prov->ListSubfoldersChecked(prefix, appIds)) {
         prov->Shutdown();
-        return JsonError("Failed to list remote apps");
+        return JsonError("Failed to list apps for account " + accountId);
     }
     std::map<std::string, std::pair<int, uint64_t>> appStats; // appId -> (count, totalSize)
     for (const auto& appId : appIds) {
@@ -268,9 +254,9 @@ std::string CmdListRemoteAppIds(const std::string& provider, const std::string& 
     
     std::string prefix = accountId + "/";
     std::vector<std::string> folders;
-    if (!ListProviderSubfolders(prov.get(), provider, prefix, folders)) {
+    if (!prov->ListSubfoldersChecked(prefix, folders)) {
         prov->Shutdown();
-        return JsonError("Failed to list remote app IDs");
+        return JsonError("Failed to list apps for account " + accountId);
     }
     prov->Shutdown();
     
@@ -1035,9 +1021,9 @@ std::string CmdScanAll(const std::string& provider) {
     bool firstApp = true;
     for (const auto& acct : accountIds) {
         std::vector<std::string> appIds;
-        if (!ListProviderSubfolders(prov.get(), provider, acct + "/", appIds)) {
+        if (!prov->ListSubfoldersChecked(acct + "/", appIds)) {
             prov->Shutdown();
-            return JsonError("Failed to list remote apps for account " + acct);
+            return JsonError("Failed to list apps for account " + acct);
         }
         for (const auto& appId : appIds) {
             if (appId.empty() || appId == "0") continue;
@@ -1321,7 +1307,7 @@ static void PrintUsage() {
     fprintf(stderr, "  gc-blobs <provider> <account_id> <app_id> <cloud_root>  Delete unreferenced SHA blobs from cloud\n");
     fprintf(stderr, "  scan-all <provider>                                       List all apps across all accounts (single-pass)\n");
     fprintf(stderr, "  migrate <src_provider> <dst_provider>                     Copy all cloud data from one provider to another\n");
-    fprintf(stderr, "\nProviders: folder, gdrive, onedrive, r2, s3\n");
+    fprintf(stderr, "\nProviders: gdrive, onedrive, r2, s3\n");
 }
 
 int RunCli(int argc, char** argv) {
@@ -1473,6 +1459,9 @@ extern "C"
 __declspec(dllexport)
 #endif
 int CloudRedirect_CliMain(int argc, char** argv) {
+#ifndef _WIN32
+    Log::Init();
+#endif
     if (CloudRedirectCli::IsCliMode(argc, argv)) {
         return CloudRedirectCli::RunCli(argc, argv);
     }

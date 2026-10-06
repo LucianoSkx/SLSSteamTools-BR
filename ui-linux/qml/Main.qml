@@ -103,10 +103,14 @@ ApplicationWindow {
         anchors.centerIn: parent
         width: Math.min(parent.width - 80, 440)
 
-        Label {
-            text: "O CloudRedirect foi atualizado. Reinicie o aplicativo para usar a nova versão."
-            wrapMode: Text.WordWrap
-            width: parent.width
+        ColumnLayout {
+            anchors.fill: parent
+
+            Label {
+                text: "O CloudRedirect foi atualizado. Reinicie o aplicativo para usar a nova versão."
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
         }
     }
 
@@ -171,13 +175,14 @@ ApplicationWindow {
             Layout.fillWidth: true
 
             // Size each tab to its label so wider labels aren't truncated.
-            TabButton { text: "Painel";        width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Aplicativos";   width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Backups";        width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Provedor";      width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Instalação";    width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Estatísticas";  width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
-            TabButton { text: "Migração";      width: Math.max(implicitWidth, contentItem.implicitWidth + 24) }
+            // org.kde.desktop paints without a contentItem, so never read it here.
+            TabButton { text: "Painel";        width: implicitWidth }
+            TabButton { text: "Aplicativos";   width: implicitWidth }
+            TabButton { text: "Backups";        width: implicitWidth }
+            TabButton { text: "Provedor";      width: implicitWidth }
+            TabButton { text: "Instalação";    width: implicitWidth }
+            TabButton { text: "Estatísticas";  width: implicitWidth }
+            TabButton { text: "Migração";      width: implicitWidth }
         }
 
         StackLayout {
