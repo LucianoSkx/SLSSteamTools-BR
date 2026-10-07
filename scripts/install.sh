@@ -551,6 +551,8 @@ escrever_steam_cr() {
     local inj="$sls_dir/SLSsteam.so"
     [ -s "$sls_dir/library-inject.so" ] && inj="$sls_dir/library-inject.so:$inj"
     local INJECT_SLS="LD_AUDIT=$inj"
+    local INJECT_CR="LD_PRELOAD=$cr_so"
+    [ -f "$HOME/.config/CloudRedirect/DISABLED" ] && INJECT_CR=""
     cat > "$sh" <<EOF
 #!/usr/bin/env bash
 # Gerado pelo instalador SLSsteam + CloudRedirect pt-BR (modo h3adcr-b, variante CR).
@@ -558,7 +560,7 @@ escrever_steam_cr() {
 # do repositorio restaura tudo.
 STEAM_CLIENT="$cliente"
 INJECT_SLS="$INJECT_SLS"
-INJECT_CR="LD_PRELOAD=$cr_so"
+INJECT_CR="$INJECT_CR"
 SLS_LOG="$log"
 SteamInstallDir=\$HOME/.steam/steam
 read_os_release() {
@@ -668,7 +670,7 @@ CheckClientInfo() {
 GameLauncher() {
     CheckClientInfo
     echo "Loaded SLSsteam" & export \$INJECT_SLS &> /dev/null
-    echo "Loaded CloudRedirect" & export \$INJECT_CR &> /dev/null
+    if [ -n "\$INJECT_CR" ]; then echo "Loaded CloudRedirect"; export \$INJECT_CR &> /dev/null; fi
     source \$STEAM_CLIENT "\$@" &> /dev/null
 }
 steam() {
