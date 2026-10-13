@@ -2024,6 +2024,7 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
     std::thread([accountId, appId, publishCN, publishBuildId,
                  uploadMetaCopy, filePlatformsCopy, uploadsCopy, deletesCopy,
                  publishPromise = std::move(publishPromise)]() mutable {
+        CR_SetCrashContext("BgPublish", "", appId);
         CloudStorage::InflightSyncScope pubGuard;
         if (!pubGuard.entered) {
             publishPromise.set_value();

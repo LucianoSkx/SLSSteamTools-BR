@@ -1,3 +1,5 @@
+extern "C" void CR_SetCrashContext(const char* hook, const char* method, unsigned int appId);
+
 #include "app_state.h"
 #include "cloud_storage.h"
 #include "cloud_metadata_paths.h"
@@ -491,6 +493,7 @@ StateFetchResult FetchCloudStateBounded(uint32_t accountId, uint32_t appId,
     auto promise = std::make_shared<std::promise<StateFetchResult>>();
     auto future = promise->get_future();
     std::thread([accountId, appId, key, promise]() {
+        CR_SetCrashContext("BgFetchBounded", "", appId);
             // RAII: release inflight slot even on throw (bad_alloc -> std::terminate).
         struct SlotGuard {
             uint64_t key;
@@ -546,7 +549,7 @@ StateFetchResult FetchCloudStateServeImmediate(uint32_t accountId, uint32_t appI
         const ServeCacheEntry& e = it->second;
         int64_t ageMs = NowMs() - e.fetchedAtMs;
         if (ageMs >= 0 && ageMs < kServeCacheMaxAgeMs && !e.foreignSession) {
-            std::thread([accountId, appId]() { FetchCloudStateForServe(accountId, appId); }).detach();
+            std::thread([accountId, appId]() { CR_SetCrashContext("BgFetchServeImmediate", "", appId); FetchCloudStateForServe(accountId, appId); }).detach();
             return e.result;
         }
     }
@@ -573,6 +576,7 @@ StateFetchResult FetchCloudStateForServe(uint32_t accountId, uint32_t appId) {
     }
     // Miss / stale / contention -> live fetch on bg thread (unbounded; BeginBatch needs fresh CN).
     auto fetchFut = std::async(std::launch::async, [accountId, appId]() {
+        CR_SetCrashContext("BgFetchServeLive", "", appId);
         return FetchCloudState(accountId, appId);
     });
     CoopYield::PumpUntil([&fetchFut]() {

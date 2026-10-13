@@ -1,3 +1,6 @@
+extern "C" void CR_SetCrashContext(const char* hook, const char* method, unsigned int appId);
+extern "C" void CR_ClearCrashContext();
+
 #include "cloud_hooks.h"
 #include "cloud_intercept.h"
 #include "stats_hooks.h"
@@ -85,6 +88,7 @@ static void ProcessLateDiscovery(uint32_t appId) {
 }
 
 static void LateDiscoveryWorker() noexcept {
+    CR_SetCrashContext("BgLateDiscovery", "", 0);
     LinuxLateDiscovery::Drain(
         g_lateDiscoveryQueue,
         [](uint32_t appId) { ProcessLateDiscovery(appId); },
@@ -113,8 +117,6 @@ struct HookGuard {
     ~HookGuard() { g_hookRefCount.fetch_sub(1, std::memory_order_release); }
 };
 
-extern "C" void CR_SetCrashContext(const char* hook, const char* method, uint32_t appId);
-extern "C" void CR_ClearCrashContext();
 
 class CrashContextScope {
 public:
@@ -544,6 +546,7 @@ static void EnsureInitialized() {
         if (MetadataSync::syncAchievements.load(std::memory_order_relaxed) ||
             MetadataSync::syncPlaytime.load(std::memory_order_relaxed)) {
             g_seedThread = std::thread([] {
+                CR_SetCrashContext("BgSeed", "", 0);
                 if (!g_shuttingDown.load(std::memory_order_acquire))
                     StatsStore::SeedApps(CloudIntercept::GetNamespaceApps());
                 {
@@ -556,6 +559,7 @@ static void EnsureInitialized() {
 
         // Re-pull cloud every 60s for cross-device playtime. Tracked thread (joined at shutdown).
         g_cloudPollerThread = std::thread([] {
+            CR_SetCrashContext("BgCloudPoller", "", 0);
             for (;;) {
                 for (int i = 0; i < 60 && !g_shuttingDown.load(std::memory_order_acquire); ++i)
                     sleep(1);
@@ -847,6 +851,7 @@ extern "C" int hook_NotificationDirect(void* pThis, const char* methodName, void
             // Native-faithful: ExitSyncDone is fire-and-forget (notification, no
             // response). Dispatch session release off Steam's thread.
             std::thread([accountId, appId, clientId] {
+                CR_SetCrashContext("BgExitSync", "", appId);
                 CloudStorage::InflightSyncScope guard;
                 if (!guard.entered) return;  // shutting down, skip session release
                 CloudStorage::ReleaseCloudSession(accountId, appId, clientId);

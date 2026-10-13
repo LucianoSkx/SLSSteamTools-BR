@@ -1,3 +1,5 @@
+extern "C" void CR_SetCrashContext(const char* hook, const char* method, unsigned int appId);
+
 #include "stats_store.h"
 #include "json.h"
 #include "vdf.h"
@@ -1635,6 +1637,7 @@ static void PushAccountBlobIfDirty() {
         g_accountBlobDirty = false;       // clear before releasing (re-set on later change)
     }
     std::thread([push = std::move(push), snapshot = std::move(snapshot), snapshotAccountId]() {
+        CR_SetCrashContext("BgStatsPush", "", snapshotAccountId);
         std::lock_guard<std::mutex> pushLock(g_pushInFlightMutex);
         {
     std::unique_lock<std::mutex> lock(g_mutex);

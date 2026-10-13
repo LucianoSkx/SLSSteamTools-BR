@@ -1,3 +1,5 @@
+extern "C" void CR_SetCrashContext(const char* hook, const char* method, unsigned int appId);
+
 #include "cloud_intercept.h"
 #include "log.h"
 #include "file_util.h"
@@ -272,6 +274,7 @@ static void RescanAllSources(const WatchTargets& targets, bool verbose) {
 // writers such as `cp` or an editor saving in place, where the IN_CREATE
 // event alone would observe a still-empty file.
 static void SourceWatcherThread(WatchTargets targets) {
+    CR_SetCrashContext("BgSourceWatcher", "", 0);
     const int notifyFd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
     if (notifyFd == -1) {
         LOG("[Linux] inotify_init1 failed: %s", strerror(errno));

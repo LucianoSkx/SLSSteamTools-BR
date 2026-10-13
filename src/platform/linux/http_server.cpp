@@ -1,3 +1,5 @@
+extern "C" void CR_SetCrashContext(const char* hook, const char* method, unsigned int appId);
+
 #include "http_server.h"
 #include "file_util.h"
 #include "cloud_storage.h"
@@ -587,6 +589,7 @@ bool Start(const std::string& blobRoot, uint32_t accountId) {
 
     g_running = true;
     g_serverThread = std::thread([]() {
+        CR_SetCrashContext("BgHttpServer", "", 0);
         while (g_running) {
             struct sockaddr_in clientAddr{};
             socklen_t clientLen = sizeof(clientAddr);
@@ -636,6 +639,7 @@ bool Start(const std::string& blobRoot, uint32_t accountId) {
                 try {
                     RegisterClientFd(clientFd);
                     g_clientThreads.push_back(ClientThread{std::thread([clientFd, done]() {
+                        CR_SetCrashContext("BgHttpClient", "", 0);
                         g_activeConnections.fetch_add(1);
                         // HandleConnection -> RetrieveBlob can throw (e.g.
                         // std::bad_alloc on a large/corrupt blob). An uncaught

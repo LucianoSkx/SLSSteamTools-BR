@@ -44,7 +44,7 @@ static std::atomic<bool> g_initThreadCreated{false};
 // Raw diagnostic logging (survives even if C++ runtime is broken)
 
 static int g_debugFd = -1;
-static char g_crashContext[192] = "none";
+static thread_local char g_crashContext[192] = "none";
 
 static void DebugLog(const char* msg)
 {
