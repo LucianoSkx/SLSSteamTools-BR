@@ -44,6 +44,7 @@ private:
     bool m_headcrabInstalled = false;
     bool m_alreadyDeployed = false;
     bool m_updateAvailable = false;
+    bool m_bundledIsOlder = false;
     bool m_slsCloudBlocked = true;
     QString m_statusMessage;
     QString m_soSourcePath;

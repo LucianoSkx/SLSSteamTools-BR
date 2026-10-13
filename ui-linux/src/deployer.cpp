@@ -196,7 +196,13 @@ void Deployer::checkPrerequisites()
                     m_updateAvailable = true;
             }
         } else if (m_bundledVersion != m_deployedVersion) {
-            m_updateAvailable = true;
+            // Only offer an update when the bundled .so is actually newer than
+            // the deployed one. A stale bundled copy (e.g. a UI older than the
+            // last manual deploy) must never be presented as an "update" --
+            // that would downgrade a working install.
+            QFileInfo src(m_soSourcePath), dst(m_soDeployPath);
+            m_bundledIsOlder = src.lastModified() < dst.lastModified();
+            m_updateAvailable = !m_bundledIsOlder;
         }
     }
 
@@ -204,6 +210,8 @@ void Deployer::checkPrerequisites()
         m_statusMessage = "O SLSsteam não está instalado. Instale o SLSsteam primeiro.";
     } else if (!m_headcrabInstalled) {
         m_statusMessage = "O h3adcr-b não está instalado. Você executou o h3adcr-b antes?";
+    } else if (m_bundledIsOlder) {
+        m_statusMessage = "O CloudRedirect está instalado e ativo (a cópia incluída neste aplicativo é mais antiga).";
     } else if (m_updateAvailable) {
         m_statusMessage = "Atualização disponível. Uma versão mais nova está incluída neste aplicativo.";
     } else if (m_alreadyDeployed) {
