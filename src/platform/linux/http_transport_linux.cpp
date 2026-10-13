@@ -95,7 +95,7 @@ static bool InitCurl() {
     }
 
     for (int i = 0; names[i]; i++) {
-        g_curl.handle = dlopen(names[i], RTLD_NOW | RTLD_GLOBAL);
+        g_curl.handle = dlopen(names[i], RTLD_NOW | RTLD_LOCAL);
         if (g_curl.handle) {
             LOG("[HTTP] Loaded %s", names[i]);
             break;

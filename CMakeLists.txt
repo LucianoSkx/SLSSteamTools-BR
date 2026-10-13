@@ -176,6 +176,13 @@ if(WIN32)
 else()
     target_include_directories(cloud_redirect PRIVATE src/platform/linux)
     target_link_libraries(cloud_redirect PRIVATE dl pthread)
+    # Hide symbols so the LD_PRELOADed .so cannot interpose on the Steam runtime
+    # (leaked curl/OpenSSL/libstdc++ symbols abort Steam's own callers).
+    target_compile_options(cloud_redirect PRIVATE -fvisibility=hidden)
+    set_target_properties(cloud_redirect PROPERTIES C_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden)
+    target_link_options(cloud_redirect PRIVATE -Wl,--exclude-libs,ALL)
+    target_link_options(cloud_redirect PRIVATE
+        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/platform/linux/exports.map)
     # Steam on Linux is 32-bit; use LINUX_32BIT=ON when cross-compiling on 64-bit host
     # Match Steam's pre-C++11 ABI
     target_compile_definitions(cloud_redirect PRIVATE _GLIBCXX_USE_CXX11_ABI=0 _FILE_OFFSET_BITS=64)
