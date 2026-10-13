@@ -1,5 +1,6 @@
 build/
 build-*/
+build_rel/
 dist/
 ui/bin/
 ui/obj/
