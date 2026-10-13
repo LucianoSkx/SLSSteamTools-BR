@@ -86,6 +86,10 @@ uint64_t FetchCloudCN(uint32_t accountId, uint32_t appId);
 // Time-bounded live fetch (worker + deadline); timeout warms serve cache for next call.
 StateFetchResult FetchCloudStateBounded(uint32_t accountId, uint32_t appId,
                                         int deadlineMs);
+// Non-blocking serve: cached snapshot now, refresh in background.
+// The bounded variant hard-blocks Steam's network thread (PumpUntil has no
+// yield hook on Linux), which trips the client watchdog and aborts it.
+StateFetchResult FetchCloudStateServeImmediate(uint32_t accountId, uint32_t appId);
 
 // Serve-path cache accessor: returns cached state if fresh + no foreign session, else live fetch.
 // Not for read-modify-write callers.

@@ -538,6 +538,21 @@ StateFetchResult FetchCloudStateBounded(uint32_t accountId, uint32_t appId,
     return { StateFetchStatus::Timeout, {} };
 }
 
+// Non-blocking serve: return cached snapshot immediately; refresh in bg without blocking.
+StateFetchResult FetchCloudStateServeImmediate(uint32_t accountId, uint32_t appId) {
+    std::lock_guard<std::mutex> lk(g_serveCacheMtx);
+    auto it = g_serveCache.find(ServeCacheKey(accountId, appId));
+    if (it != g_serveCache.end()) {
+        const ServeCacheEntry& e = it->second;
+        int64_t ageMs = NowMs() - e.fetchedAtMs;
+        if (ageMs >= 0 && ageMs < kServeCacheMaxAgeMs && !e.foreignSession) {
+            std::thread([accountId, appId]() { FetchCloudStateForServe(accountId, appId); }).detach();
+            return e.result;
+        }
+    }
+    return { StateFetchStatus::Timeout, {} };
+}
+
 // Serve-path accessor: reuse a recent snapshot when provably safe, else live.
 StateFetchResult FetchCloudStateForServe(uint32_t accountId, uint32_t appId) {
     {

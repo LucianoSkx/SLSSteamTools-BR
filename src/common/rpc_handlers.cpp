@@ -638,11 +638,11 @@ RpcResult HandleGetChangelist(uint32_t appId, const std::vector<PB::Field>& reqB
 
     if (CloudStorage::IsCloudActive()) {
         SetRpcCrashContext("GetChangelist:fetch-cloud", "Cloud.GetAppFileChangelist#1", appId);
-        // Bounded: timeout falls through to local-manifest fallback (background fetch
-        // warms cache). Stay under the 15s BMainLoop watchdog.
-        static constexpr int kChangelistFetchDeadlineMs = 12000;
-        auto stateResult = CloudStorage::FetchCloudStateBounded(
-            accountId, appId, kChangelistFetchDeadlineMs);
+        // Never block Steam's network thread: serve the cached snapshot and
+        // refresh in background. The bounded variant hard-blocks here (no
+        // yield hook on Linux) and trips the client watchdog -> SIGABRT.
+        auto stateResult = CloudStorage::FetchCloudStateServeImmediate(
+            accountId, appId);
         if (stateResult.status == CloudStorage::StateFetchStatus::Ok) {
             auto& state = stateResult.state;
             cloudCN = state.cn;
