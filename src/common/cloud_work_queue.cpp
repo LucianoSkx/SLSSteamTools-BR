@@ -90,6 +90,7 @@ static void OnCloudSuccess();
 static void OnCloudFailure(const char* operation, const std::string& path);
 static void WorkerLoop(int threadId);
 static bool RequeueFromWorker(WorkItem item);
+static void StopWorkers(std::chrono::steady_clock::time_point deadline);
 static void RequeueFailedWorkForPrefixLocked(const std::string& prefix);
 static bool HasFailedWorkForPrefix(const std::string& prefix);
 
@@ -651,12 +652,7 @@ void Init(ICloudProvider* provider) {
 void Init(ICloudProvider* provider, Reporter reporter) {
     // Reuse existing workers if still running.
     if (g_workerRunning.load()) {
-        g_workerRunning = false;
-        g_queueCV.notify_all();
-        for (auto& t : g_workerThreads) {
-            if (t.joinable()) t.join();
-        }
-        g_workerThreads.clear();
+        StopWorkers(std::chrono::steady_clock::now() + std::chrono::seconds(5));
     }
 
     g_provider = provider;
@@ -701,39 +697,33 @@ void SetWorkerThreadCount(int count) {
     g_workerThreadCount.store(count);
 }
 
-void Shutdown() {
-    g_shuttingDown.store(true, std::memory_order_seq_cst);
+static void StopWorkers(std::chrono::steady_clock::time_point deadline) {
     g_workerRunning = false;
     g_queueCV.notify_all();
 
-    // 5s bounded wait for workers; detach stragglers blocked on cloud I/O.
-    auto joinDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (g_activeWorkers.load(std::memory_order_acquire) > 0 &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    if (g_activeWorkers.load(std::memory_order_acquire) > 0) {
+        LOG("[CloudStorage] WorkQueue shutdown: detaching workers stuck in cloud I/O");
+        for (auto& t : g_workerThreads) {
+            if (t.joinable()) t.detach();
+        }
+        g_workerThreads.clear();
+        return;
+    }
+
     for (auto& t : g_workerThreads) {
-        if (!t.joinable()) continue;
-        auto remaining = joinDeadline - std::chrono::steady_clock::now();
-        if (remaining <= std::chrono::milliseconds(0)) {
-            LOG("[CloudStorage] WorkQueue shutdown: detaching worker (join deadline exceeded)");
-            t.detach();
-            continue;
-        }
-#ifdef _WIN32
-        DWORD waitMs = (DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(remaining).count();
-        HANDLE h = t.native_handle();
-        if (WaitForSingleObject(h, waitMs) == WAIT_TIMEOUT) {
-            LOG("[CloudStorage] WorkQueue shutdown: detaching worker (join timed out after %lu ms)", waitMs);
-            t.detach();
-        } else {
-            t.join();
-        }
-#else
-        // No timed join on POSIX; best-effort sleep then join.
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        if (t.joinable()) {
-            t.join();
-        }
-#endif
+        if (t.joinable()) t.join();
     }
     g_workerThreads.clear();
+}
+
+void Shutdown() {
+    g_shuttingDown.store(true, std::memory_order_seq_cst);
+    StopWorkers(std::chrono::steady_clock::now() + std::chrono::seconds(5));
 
     int spinCount = 0;
     while (g_activeWorkers.load(std::memory_order_acquire) > 0) {
