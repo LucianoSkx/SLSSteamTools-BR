@@ -285,15 +285,17 @@ travar_cliente_steam() {
             chmod +x "$dgsc"
         fi
 
+        local lancador
+        lancador="$(command -v steam || true)"
+        [ -n "$lancador" ] || die "comando steam nao encontrado no PATH"
+        [ -d "$raiz/package" ] || die "diretorio $raiz/package inexistente; abortando"
+
         matar_steam
         rm -f "$raiz/package"/*
         cp "$man_tmp" "$src_tmp" "$raiz/package/"
         ( cd "$raiz/package" && "$dgsc" --port 1666 --silent &> /dev/null & )
         sleep 1
 
-        local lancador
-        lancador="$(command -v steam || true)"
-        [ -n "$lancador" ] || die "comando steam nao encontrado no PATH"
         run_cmd timeout 900 env -u LD_AUDIT -u LD_PRELOAD $lancador \
             -forcesteamupdate -forcepackagedownload \
             -overridepackageurl "$URL_DOWNGRADE" -exitsteam \
