@@ -1,6 +1,6 @@
 -- Proveniencia: canal #slssteam-plugins (post de ciskao, fonte anonima),
 -- via https://github.com/ciscosweater/enter-the-wired/releases (plugins-deps.zip).
--- Codigo de terceiros, sem alteracao alem deste cabecalho.
+-- Codigo de terceiros; unica alteracao: endpoint do manifesto em https (antes http).
 
 Downloader = Downloader or {
 	setup = false,
@@ -244,7 +244,7 @@ Downloader.getManifestRequestCode = function(manifestId, try)
 	-- local url = "https://manifest.opensteamtool.com/" .. tostring(ffi.string(manifestCStr, MAX_MANIFEST_STRING_SIZE))
 	-- local headers = { "User-Agent: OpenSteamTool/1.0" }
 	-- local codeStr = tostring(curl.downloadString(url, headers, 5))
-	local url = "http://gmrc.wudrm.com/manifest/" .. tostring(ffi.string(manifestCStr, Downloader.MAX_MANIFEST_STRING_SIZE))
+	local url = "https://gmrc.wudrm.com/manifest/" .. tostring(ffi.string(manifestCStr, Downloader.MAX_MANIFEST_STRING_SIZE))
 	local codeStr = tostring(curl.downloadString(url, 5))
 	if #codeStr < 1 then
 		log.warn("Failed to download manifest request code for " .. manifestId)
