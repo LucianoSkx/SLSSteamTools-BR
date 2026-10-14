@@ -11,6 +11,7 @@ const char* CR_GetVersion() { return CR_VERSION_STRING; }
 #include "cloud_hooks.h"
 #include "cloud_intercept.h"
 #include "cloud_storage.h"
+#include "crash_guard.h"
 #include "http_server.h"
 #include "init_stop.h"
 #include "legacy_metadata_cleanup.h"
@@ -290,17 +291,6 @@ static void DoInit()
 }
 
 
-
-static sigjmp_buf g_crashJmpBuf;
-static volatile sig_atomic_t g_inScan = 0;
-
-static void ScanCrashHandler(int sig)
-{
-    if (g_inScan)
-        siglongjmp(g_crashJmpBuf, 1);
-    // Not our crash -- SA_RESETHAND already restored default, just re-raise
-    raise(sig);
-}
 
 // ── Post-init crash handler: dumps backtrace to log ─────────────────────
 static volatile sig_atomic_t g_inCrashHandler = 0;
@@ -592,26 +582,18 @@ static void* DeferredInitThread(void*)
     DebugLog("[CR] DeferredInit: starting\n");
 
     // Install crash guard so a bad memory read aborts correctly
-    struct sigaction sa = {}, old_segv = {}, old_bus = {};
-    sa.sa_handler = ScanCrashHandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESETHAND;  // Reset to default on signal (async-signal-safe)
-    sigaction(SIGSEGV, &sa, &old_segv);
-    sigaction(SIGBUS, &sa, &old_bus);
-
-    g_inScan = 1;
-    if (sigsetjmp(g_crashJmpBuf, 1) == 0) {
-        DoInit();
-    } else {
-        DebugLog("[CR] DeferredInit: CRASHED during init, aborting safely\n");
-        Log::Error("Caught signal during init - incompatible steamclient? Hooks NOT installed.");
-        Notify("Crashed during init - hooks disabled", true);
+    {
+        CrashGuard guard;
+        int sig = sigsetjmp(guard.Buf(), 1);
+        guard.Arm();
+        if (sig == 0) {
+            DoInit();
+        } else {
+            DebugLog("[CR] DeferredInit: CRASHED during init, aborting safely\n");
+            Log::Error("Caught signal during init - incompatible steamclient? Hooks NOT installed.");
+            Notify("Crashed during init - hooks disabled", true);
+        }
     }
-    g_inScan = 0;
-
-    // Restore original handlers and install crash dump handler if init succeeded
-    sigaction(SIGSEGV, &old_segv, nullptr);
-    sigaction(SIGBUS, &old_bus, nullptr);
 
     if (g_initialized.load(std::memory_order_acquire)) {
         InstallCrashDumpHandler();

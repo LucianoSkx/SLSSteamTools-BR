@@ -10,12 +10,12 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#include "crash_guard.h"
+
 #include <dlfcn.h>
 #include <link.h>
 #include <cstdio>
 #include <cstring>
-#include <csetjmp>
-#include <csignal>
 #endif
 
 namespace SteamKvInjector {
@@ -419,36 +419,6 @@ static constexpr uint32_t kSectionUfs = 10;
 // injector is disabled the caller simply falls back to a default quota; cloud
 // and local saves are unaffected.
 static std::atomic<bool> g_kvBroken{false};
-static sigjmp_buf g_kvJmpBuf;
-static volatile sig_atomic_t g_inKvCall = 0;
-
-static void KvCrashHandler(int sig) {
-    if (g_inKvCall) {
-        siglongjmp(g_kvJmpBuf, sig);
-    }
-    raise(sig);
-}
-
-class KvCrashGuard {
-public:
-    KvCrashGuard() {
-        struct sigaction sa = {};
-        sa.sa_handler = KvCrashHandler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_RESETHAND;
-        sigaction(SIGSEGV, &sa, &m_oldSegv);
-        sigaction(SIGBUS, &sa, &m_oldBus);
-        g_inKvCall = 1;
-    }
-    ~KvCrashGuard() {
-        g_inKvCall = 0;
-        sigaction(SIGSEGV, &m_oldSegv, nullptr);
-        sigaction(SIGBUS, &m_oldBus, nullptr);
-    }
-private:
-    struct sigaction m_oldSegv = {};
-    struct sigaction m_oldBus = {};
-};
 
 struct MemRegion { uintptr_t start; uintptr_t end; };
 
@@ -826,8 +796,9 @@ bool ReadAppQuota(uint32_t appId, uint64_t& outQuotaBytes, uint32_t& outMaxNumFi
         // update would otherwise SIGSEGV here and abort the client. On a fault
         // we disable the injector for the session and report "no quota", which
         // the caller handles by injecting a safe default. Saves are untouched.
-        KvCrashGuard guard;
-        int sig = sigsetjmp(g_kvJmpBuf, 1);
+        CrashGuard guard;
+        int sig = sigsetjmp(guard.Buf(), 1);
+        guard.Arm();
         if (sig != 0) {
             g_kvBroken.store(true, std::memory_order_release);
             LOG("[KvInjector] ReadAppQuota app=%u: steamclient call faulted "
@@ -893,8 +864,9 @@ bool InjectAppQuota(uint32_t appId, uint64_t quotaBytes, uint32_t maxNumFiles) {
     // here otherwise and aborts the client. On a fault we disable the injector
     // for the session and report failure; the caller degrades to a default
     // quota. No save data is touched on this path.
-    KvCrashGuard guard;
-    int sig = sigsetjmp(g_kvJmpBuf, 1);
+    CrashGuard guard;
+    int sig = sigsetjmp(guard.Buf(), 1);
+    guard.Arm();
     if (sig != 0) {
         g_kvBroken.store(true, std::memory_order_release);
         LOG("[KvInjector] InjectAppQuota app=%u: steamclient call faulted "
@@ -1015,8 +987,9 @@ bool InjectSaveFiles(uint32_t appId, const std::vector<SaveFileRule>& rules) {
 
     // Guard the steamclient.so accesses (see InjectAppQuota). On a fault we
     // disable the injector and bail; save data is never touched here.
-    KvCrashGuard guard;
-    int sig = sigsetjmp(g_kvJmpBuf, 1);
+    CrashGuard guard;
+    int sig = sigsetjmp(guard.Buf(), 1);
+    guard.Arm();
     if (sig != 0) {
         g_kvBroken.store(true, std::memory_order_release);
         LOG("[KvInjector] InjectSaveFiles app=%u: steamclient call faulted "

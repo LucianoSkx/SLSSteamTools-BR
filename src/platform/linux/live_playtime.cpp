@@ -1,11 +1,10 @@
 #include "live_playtime.h"
+#include "crash_guard.h"
 #include "stats_eligibility.h"
 #include "log.h"
 
 #include <atomic>
 #include <cstring>
-#include <csetjmp>
-#include <csignal>
 #include <mutex>
 #include <queue>
 #include <sys/mman.h>
@@ -85,32 +84,6 @@ static void* ScanSig(uintptr_t base, size_t size, const uint8_t* b, const uint8_
 
 // Crash guard: a layout mismatch in the parse/writer calls faults to SIGSEGV;
 // convert it to a skipped update instead of a crash.
-static sigjmp_buf g_jmp;
-static volatile sig_atomic_t g_inCall = 0;
-static void CrashHandler(int sig) {
-    if (g_inCall) siglongjmp(g_jmp, sig);
-    raise(sig);
-}
-class CallGuard {
-public:
-    CallGuard() {
-        struct sigaction sa = {};
-        sa.sa_handler = CrashHandler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_RESETHAND;
-        sigaction(SIGSEGV, &sa, &m_segv);
-        sigaction(SIGBUS, &sa, &m_bus);
-        g_inCall = 1;
-    }
-    ~CallGuard() {
-        g_inCall = 0;
-        sigaction(SIGSEGV, &m_segv, nullptr);
-        sigaction(SIGBUS, &m_bus, nullptr);
-    }
-private:
-    struct sigaction m_segv = {};
-    struct sigaction m_bus = {};
-};
 
 // CUser-capture detour on the writer entry. Writer (__cdecl) prologue:
 //   +0x00 call get_pc_thunk; +0x05 add eax,delta   (PIC)
@@ -379,11 +352,12 @@ void Apply(const std::vector<uint8_t>& respBody) {
     // MessageLite body at wrapper[8].
     uint32_t wrapper[WRAP_DWORDS] = {0};
 
-    CallGuard guard;
-    if (sigsetjmp(g_jmp, 1) != 0) {
+    CrashGuard guard;
+    if (sigsetjmp(guard.Buf(), 1) != 0) {
         LOG("[Stats] LivePlaytime::Apply crashed in steamclient call -- skipped");
         return;
     }
+    guard.Arm();
 
     g_msgCtor((int)(uintptr_t)wrapper, 0, 0);
     wrapper[0] = (uint32_t)g_respWrapperVt;

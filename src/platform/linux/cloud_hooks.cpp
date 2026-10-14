@@ -2,6 +2,7 @@ extern "C" void CR_SetCrashContext(const char* hook, const char* method, unsigne
 extern "C" void CR_ClearCrashContext();
 
 #include "cloud_hooks.h"
+#include "crash_guard.h"
 #include "cloud_intercept.h"
 #include "stats_hooks.h"
 #include "stats_eligibility.h"
@@ -144,39 +145,6 @@ using ParseFromArray_t   = int(*)(void* msg, const void* data, int len);
 static SerializeToArray_t g_serializeToArray = nullptr;
 static ParseFromArray_t   g_parseFromArray   = nullptr;
 
-static sigjmp_buf g_protoJmpBuf;
-static volatile sig_atomic_t g_inProtoCall = 0;
-
-static void ProtoCrashHandler(int sig) {
-    if (g_inProtoCall) {
-        siglongjmp(g_protoJmpBuf, sig);
-    }
-    raise(sig);
-}
-
-class ProtoCrashGuard {
-public:
-    ProtoCrashGuard() {
-        struct sigaction sa = {};
-        sa.sa_handler = ProtoCrashHandler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_RESETHAND;
-        sigaction(SIGSEGV, &sa, &m_oldSegv);
-        sigaction(SIGBUS, &sa, &m_oldBus);
-        g_inProtoCall = 1;
-    }
-
-    ~ProtoCrashGuard() {
-        g_inProtoCall = 0;
-        sigaction(SIGSEGV, &m_oldSegv, nullptr);
-        sigaction(SIGBUS, &m_oldBus, nullptr);
-    }
-
-private:
-    struct sigaction m_oldSegv = {};
-    struct sigaction m_oldBus = {};
-};
-
 // Signature patterns for runtime resolution
 //
 // SerializeToArray (33 bytes total):
@@ -263,8 +231,9 @@ static std::vector<uint8_t> SerializeMessage(void* msg) {
     uint32_t* vtable = *(uint32_t**)msg;
     if (!vtable || !vtable[9]) return {};
     using ByteSizeFn = int(__attribute__((cdecl)) *)(void*);
-    ProtoCrashGuard guard;
-    int sig = sigsetjmp(g_protoJmpBuf, 1);
+    CrashGuard guard;
+    int sig = sigsetjmp(guard.Buf(), 1);
+    guard.Arm();
     if (sig != 0) {
         LOG("[Hook] SerializeToArray helper crashed with signal %d", sig);
         return {};
@@ -281,8 +250,9 @@ static std::vector<uint8_t> SerializeMessage(void* msg) {
 static bool ParseIntoMessage(void* msg, const uint8_t* data, size_t len) {
     if (!msg || !g_parseFromArray || !data || len == 0) return false;
     if (len > (size_t)INT_MAX) return false;
-    ProtoCrashGuard guard;
-    int sig = sigsetjmp(g_protoJmpBuf, 1);
+    CrashGuard guard;
+    int sig = sigsetjmp(guard.Buf(), 1);
+    guard.Arm();
     if (sig != 0) {
         LOG("[Hook] ParseFromArray helper crashed with signal %d while parsing %zu bytes", sig, len);
         return false;
