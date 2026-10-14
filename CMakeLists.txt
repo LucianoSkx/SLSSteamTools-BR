@@ -69,6 +69,7 @@ set(COMMON_SOURCES
     src/common/batch_merge.cpp
     src/common/cloud_work_queue.cpp
     src/common/cloud_storage.cpp
+    src/common/provider_token_path.cpp
     src/common/local_storage.cpp
     src/common/local_metadata_store.cpp
     src/common/legacy_metadata_cleanup.cpp
@@ -248,9 +249,9 @@ if(NOT WIN32)
     add_test(NAME cli_folder_provider_test
         COMMAND bash ${CMAKE_SOURCE_DIR}/test/cli_folder_provider_test.sh
                      $<TARGET_FILE:cloud_redirect_cli>)
-    add_executable(provider_config_tests test/provider_config_tests.cpp)
+    add_executable(provider_config_tests test/provider_config_tests.cpp
+        src/common/provider_token_path.cpp src/common/json.cpp)
     target_include_directories(provider_config_tests PRIVATE src/common)
-    target_link_libraries(provider_config_tests PRIVATE cloud_redirect)
     target_compile_definitions(provider_config_tests PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
     if(LINUX_32BIT)
         target_compile_options(provider_config_tests PRIVATE -m32)
@@ -394,6 +395,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
         tests/cloud_storage_staging_tests.cpp
         src/common/cloud_work_queue.cpp
         src/common/cloud_storage.cpp
+        src/common/provider_token_path.cpp
         src/common/local_storage.cpp
         src/common/local_metadata_store.cpp
         src/common/legacy_metadata_cleanup.cpp

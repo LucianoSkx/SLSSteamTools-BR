@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+extern "C" void CR_SetCrashContext(const char*, const char*, unsigned int) {}
+
 int main() {
     namespace fs = std::filesystem;
     char pattern[] = "/tmp/cr_stats_archive_XXXXXX";
