@@ -27,6 +27,9 @@ URL_CLIENT_SH="https://cdn.jsdelivr.net/gh/Deadboy666/SteamTracking@refs/heads/m
 URL_NETSOCK="https://cdn.jsdelivr.net/gh/yesyes0649/steamnetsock-patch@builds/fix.so"
 URL_DOWNGRADE="http://localhost:1666/"
 
+SHA256_DGSC="08951d8e998d97dc4a35cb9376c888b98fa5dfb3dbf03d2fc96299403fd00422"
+SHA256_NETSOCK="0c9d0fd5e5f7aa90a67f6afaa2959bdd0f2ee87505909c3e31bdd899e080cf52"
+
 MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
 FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
 MARCA_PROPRIA="Gerado pelo instalador SLSsteam + CloudRedirect pt-BR"
@@ -184,8 +187,18 @@ ultima_tag_sls() {
 }
 
 baixar() {
+    local tmp
     info "baixando $(basename "$2")"
-    run_cmd curl -fL --retry 3 --retry-delay 2 -o "$2" "$1" || die "falha no download: $1"
+    tmp="$(mktemp "$2.tmp.XXXXXX")" || die "impossivel criar temporario para $2"
+    run_cmd curl -fL --retry 3 --retry-delay 2 -o "$tmp" "$1" \
+        || { rm -f "$tmp"; die "falha no download: $1"; }
+    mv -f "$tmp" "$2"
+}
+
+verificar_sha256() {
+    local alvo="$1" esperado="$2" atual
+    atual="$(sha256sum "$alvo" | awk '{print $1}')"
+    [ "$atual" = "$esperado" ] || die "hash de $(basename "$alvo") nao confere (esperado ${esperado:0:12}, obtido ${atual:0:12}); abortando"
 }
 
 matar_steam() {
@@ -284,6 +297,7 @@ travar_cliente_steam() {
             baixar "$URL_DGSC" "$dgsc"
             chmod +x "$dgsc"
         fi
+        verificar_sha256 "$dgsc" "$SHA256_DGSC"
 
         local lancador
         lancador="$(command -v steam || true)"
@@ -388,6 +402,7 @@ baixar_netsock() {
     else
         baixar "$URL_NETSOCK" "$dir/netsock.so"
     fi
+    verificar_sha256 "$dir/netsock.so" "$SHA256_NETSOCK"
 }
 
 liberar_cloud_no_sls() {
