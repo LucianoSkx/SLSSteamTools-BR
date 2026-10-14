@@ -201,6 +201,18 @@ verificar_sha256() {
     [ "$atual" = "$esperado" ] || die "hash de $(basename "$alvo") nao confere (esperado ${esperado:0:12}, obtido ${atual:0:12}); abortando"
 }
 
+BACKUPS_FEITOS=""
+
+backup_cfg() {
+    local cfg="$1" bkp
+    [ -f "$cfg" ] || return 0
+    case " $BACKUPS_FEITOS " in *" $cfg "*) return 0 ;; esac
+    bkp="$(mktemp "${cfg}.instbackup-XXXXXX")" || die "impossivel criar backup de $cfg"
+    cp -p "$cfg" "$bkp" || die "falha ao copiar $cfg para $bkp"
+    BACKUPS_FEITOS="$BACKUPS_FEITOS $cfg"
+    ok "backup em $bkp"
+}
+
 matar_steam() {
     info "encerrando a Steam..."
     killall -q steam steamwebhelper 2>/dev/null || true
@@ -415,6 +427,7 @@ liberar_cloud_no_sls() {
             printf 'DisableCloud: no\n' > "$cfg"
         fi
     fi
+    backup_cfg "$cfg"
     if grep -q '^[[:space:]]*DisableCloud:' "$cfg"; then
         sed -i -E 's/^([[:space:]]*DisableCloud:).*/\1 no/' "$cfg"
     else
@@ -427,6 +440,7 @@ liberar_cloud_no_sls() {
 garantir_notificacao_sls() {
     local cfg="$1" val atual novo
     [ -f "$cfg" ] || return 0
+    backup_cfg "$cfg"
 
     if grep -q '^[[:space:]]*NotifyInit:' "$cfg"; then
         sed -i -E 's/^([[:space:]]*NotifyInit:).*/\1 yes/' "$cfg"

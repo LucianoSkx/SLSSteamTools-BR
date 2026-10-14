@@ -12,6 +12,17 @@ ok()   { printf "${c_green}[ ok ]${c_reset} %s\n" "$*"; }
 warn() { printf "${c_yellow}[aviso]${c_reset} %s\n" "$*" >&2; }
 die()  { echo "[erro] $*" >&2; exit 1; }
 
+BACKUPS_FEITOS=""
+backup_cfg() {
+    local cfg="$1" bkp
+    [ -f "$cfg" ] || return 0
+    case " $BACKUPS_FEITOS " in *" $cfg "*) return 0 ;; esac
+    bkp="$(mktemp "${cfg}.instbackup-XXXXXX")" || die "impossivel criar backup de $cfg"
+    cp -p "$cfg" "$bkp" || die "falha ao copiar $cfg para $bkp"
+    BACKUPS_FEITOS="$BACKUPS_FEITOS $cfg"
+    ok "backup em $bkp"
+}
+
 config_dirs() {
     printf '%s\n' "$NATIVE_CONFIG_DIR"
 }
@@ -20,6 +31,7 @@ garantir_plugins_yes() {
     local cfg="$1"
     mkdir -p "$(dirname "$cfg")"
     [ -f "$cfg" ] || { printf 'Plugins: yes\n' > "$cfg"; return 0; }
+    backup_cfg "$cfg"
     if grep -qE '^[[:space:]]*Plugins:' "$cfg"; then
         sed -i -E 's/^([[:space:]]*Plugins:).*/\1 yes/' "$cfg"
     else
@@ -29,6 +41,7 @@ garantir_plugins_yes() {
 
 garantir_secoes_download() {
     local cfg="$1" chave
+    backup_cfg "$cfg"
     for chave in AdditionalDepots DecryptionKeys; do
         grep -qE "^[[:space:]]*$chave:" "$cfg" 2>/dev/null \
             || printf '\n%s:\n' "$chave" >> "$cfg"

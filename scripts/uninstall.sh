@@ -18,9 +18,13 @@ c_red='\033[1;31m'; c_cyan='\033[1;36m'; c_bold='\033[1m'
 
 info() { printf "${c_cyan}[info]${c_reset} %s\n" "$*"; }
 ok()   { printf "${c_green}[ ok ]${c_reset} %s\n" "$*"; }
-aviso(){ printf "${c_yellow}[aviso]${c_reset} %s\n" "$*"; }
+warn() { printf "${c_yellow}[aviso]${c_reset} %s\n" "$*"; }
 die()  { printf "${c_red}[erro]${c_reset} %s\n" "$*" >&2; exit 1; }
 titulo() { printf "\n${c_bold}==> %s${c_reset}\n" "$*"; }
+
+run_cmd() {
+    if [ "$VERBOSE" = "1" ]; then "$@"; else "$@" >/dev/null 2>&1; fi
+}
 
 show_help() {
     cat <<'EOF'
@@ -78,7 +82,7 @@ despatch_steam() {
         chmod u+w "$sh"
         cat "$sh.slssteam.bak" > "$sh"
         chmod "$modo" "$sh"
-        rm -f "$sh.slssteam.bak" "$raiz/client.sh" "$raiz/steam.cfg"
+        run_cmd rm -f "$sh.slssteam.bak" "$raiz/client.sh" "$raiz/steam.cfg"
         ok "steam.sh restaurado do backup em $sh (updates da Steam liberados)"
         return 0
     fi
@@ -88,9 +92,9 @@ despatch_steam() {
 
     if ! grep -q "$MARCADOR_SLS" "$sh"; then
         if grep -q "$MARCA_PROPRIA" "$sh"; then
-            aviso "$sh tem o lancador deste instalador mas sem backup; mantido como esta"
+            warn "$sh tem o lancador deste instalador mas sem backup; mantido como esta"
         else
-            aviso "$sh tem um patch do SLSsteam de outra ferramenta; preservado como esta"
+            warn "$sh tem um patch do SLSsteam de outra ferramenta; preservado como esta"
         fi
         return 0
     fi
@@ -124,7 +128,7 @@ main() {
     fi
     rm -rf "$DIR_CR"
     ok "interface, hook e CLI removidos de $DIR_CR"
-    aviso "ficaram intactos: $HOME/.config/CloudRedirect (config, tokens, saves e backups)"
+    warn "ficaram intactos: $HOME/.config/CloudRedirect (config, tokens, saves e backups)"
 
     titulo "2/3  SLSsteam"
     despatch_steam "$HOME/.local/share/Steam/steam.sh"
@@ -136,7 +140,7 @@ main() {
           "$HOME/.config/fish/conf.d/SLSsteam.fish"
     rm -rf "$DIR_SLS"
     ok "binarios e wrapper removidos de $DIR_SLS"
-    aviso "o config $HOME/.config/SLSsteam foi preservado"
+    warn "o config $HOME/.config/SLSsteam foi preservado"
     rm -rf "$HOME/.var/app/com.valvesoftware.Steam/.local/share/SLSsteam" \
            "$HOME/.var/app/com.valvesoftware.Steam/.local/share/CloudRedirect"
     ok "restos do flatpak removidos (config do flatpak preservado)"
