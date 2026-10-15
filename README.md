@@ -30,11 +30,23 @@ Extraia e rode:
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install.sh | bash
 ```
 
-O passo 2 trava o cliente Steam na versão compatível (via dgsc, modo
-[h3adcr-b](https://github.com/Deadboy666/h3adcr-b)), instala o SLSsteam com
-`DisableCloud: no`, compila a GUI, injeta `LD_AUDIT`+`LD_PRELOAD` no `steam.sh`
-e instala os plugins Lua — `download.lua` e `spliced-tickets.lua` são
-**obrigatórios**, sem eles depots extras e jogos com DRM não funcionam.
+O passo 2 é um port fiel do instalador
+[h3adcr-b](https://github.com/Deadboy666/h3adcr-b) — mesma ordem de etapas, mesmo
+pin do cliente Steam (`1791918634`, via dgsc), mesmos manifestos e o mesmo
+launcher `steam.sh` com `LD_AUDIT` (SLSsteam) + `LD_PRELOAD` (CloudRedirect).
+
+A única diferença é o CloudRedirect: em vez do `.so` da release h3adcr-b e do
+app flatpak de OAuth, usa o `cloud_redirect.so` deste repositório (com
+`CrashGuard` e `StopWorkers` limitados) e a UI Qt6 nativa dele para o login.
+
+Também instala o SLSsteam mais recente direto do upstream, grava
+`~/.local/share/SLSsteam/version` (usado pelo ASSella), garante
+`DisableCloud: no` / `NotifyInit: yes` / `Plugins: yes` no `config.yaml` e instala
+os plugins Lua — `download.lua` e `spliced-tickets.lua` são **obrigatórios**,
+sem eles depots extras e jogos com DRM não funcionam.
+
+Cria também a entrada **Headcrab Updater** no menu, que roda este mesmo
+instalador (não o do h3adcr-b), pra reatualizar o cliente depois.
 
 Reinicie a Steam depois (os hooks só valem para processos novos).
 
@@ -129,8 +141,7 @@ Dados em `~/.local/share/ACCELA/`.
 - [niwia](https://github.com/niwia) — ASSella (extra)
 - [Selectively11](https://github.com/Selectively11) — CloudRedirect original
 - [AceSLS](https://github.com/AceSLS/SLSsteam) — SLSsteam
-- [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — h3adcr-b (base do instalador)
-- [swwayps](https://github.com/swwayps) — cloudredirect-moon (hook 32 bits, GUI Qt6)
+- [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — h3adcr-b (base do instalador, port fiel)
 
 ## Licença
 

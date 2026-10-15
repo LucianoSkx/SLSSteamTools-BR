@@ -1,208 +1,91 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# ============================================================================
+#  Instalador SLSsteam + CloudRedirect pt-BR — port fiel do h3adcr-b
+#  (Deadboy666/h3adcr-b headcrab.sh) com o CloudRedirect deste repositorio.
+#
+#  Logica IDENTICA ao h3adcr-b: mesma ordem de etapas, mesmos cortes por
+#  distro, mesmo pin de cliente, mesmos manifestos/dgsc/client.sh e o mesmo
+#  launcher steam.sh (INJECT_SLS via LD_AUDIT + INJECT_CR via LD_PRELOAD).
+#  A unica substituicao e o CloudRedirect: em vez do .so/CLI da release
+#  h3adcr-b e do app flatpak de OAuth, usa o cloud_redirect.so deste repo
+#  (com CrashGuard + StopWorkers) e a UI Qt6 nativa dele para o login.
+#
+#  Uso:  ./scripts/install.sh
+# ============================================================================
+set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
+# ── Cabecalho: versao compativel do cliente ────────────────────────────────
+HeadcrabCompatibleClientVer=1791918634
+
+# ── Caminhos ───────────────────────────────────────────────────────────────
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+ApplicationDirectory=$HOME/.local/share/applications
+IconDirectory=$HOME/.local/share/icons/hicolor/48x48/apps
+SteamInstallDir=$HOME/.steam/steam
+FlatpakCloudRedirectDir=$HOME/.var/app/com.valvesoftware.Steam/.local/share/CloudRedirect
+FlatpakSteamInstallDir=$HOME/.var/app/com.valvesoftware.Steam/.steam/steam
+FlatpakSLSsteamInstallDir=$HOME/.var/app/com.valvesoftware.Steam/.local/share/SLSsteam
+FlatpakSLSsteamConfigDir=$HOME/.var/app/com.valvesoftware.Steam/.config/SLSsteam
+CloudRedirectDir=$HOME/.local/share/CloudRedirect
+CloudRedirectAppDir=$HOME/.local/share/CloudRedirect/app
+SLSsteamInstallDir=$HOME/.local/share/SLSsteam
+SLSsteamConfigDir=$HOME/.config/SLSsteam
+InstallDir=$SCRIPT_DIR/SLSsteam_Download/bin
+Headcrab_Downgrader_Path=$HOME/.headcrab
+
+# ── URLs (h3adcr-b) + CloudRedirect deste repo ────────────────────────────
+Headcrab_Downgrade_URL="http://localhost:1666/"
+LinuxClientManifest="https://runn.i.ng/Deadboy666/SteamTracking/refs/heads/headcrab/ClientManifest/steam_client_ubuntu12"
+DeckClientManifest="https://runn.i.ng/Deadboy666/SteamTracking/refs/heads/headcrab/ClientManifest/steam_client_steamdeck_stable_ubuntu12"
+Headcrab_Native="https://runn.i.ng//Deadboy666/h3adcr-b-modul3s/refs/heads/main/headcrab_native.sh"
+Headcrab_Native_CR="https://runn.i.ng//Deadboy666/h3adcr-b-modul3s/refs/heads/cr-test/headcrab_native.sh"
+Headcrab_Flatpak="https://runn.i.ng//Deadboy666/h3adcr-b-modul3s/refs/heads/main/headcrab_flatpak.sh"
+Headcrab_Flatpak_CR="https://runn.i.ng//Deadboy666/h3adcr-b-modul3s/refs/heads/cr-test/headcrab_flatpak.sh"
+Headcrab_Client="https://runn.i.ng//Deadboy666/SteamTracking/refs/heads/master/ClientExtracted/steam.sh"
+dgsc="https://github.com/Deadboy666/h3adcr-b-modul3s/raw/refs/heads/main/dgsc"
+dlm="https://github.com/Deadboy666/h3adcr-b-modul3s/raw/refs/heads/main/dlm"
+Sources="https://cdn.jsdelivr.net/gh/Deadboy666/h3adcr-b-modul3s@refs/heads/main/stable-sources.txt"
+Headcrab_Updater="https://cdn.jsdelivr.net/gh/Deadboy666/h3adcr-b-modul3s@refs/heads/main/headcrab.desktop"
+Headcrab_Icon="https://cdn.jsdelivr.net/gh/Deadboy666/h3adcr-b-modul3s@refs/heads/main/headcrab.png"
+
+# CloudRedirect: o binario 32-bit (com CrashGuard) e o CLI deste repositorio.
+REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
+CR_BRANCH="${CR_BRANCH:-master}"
+CR_RAW="https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/$CR_BRANCH"
+CloudRedirectLib="$CR_RAW/cloud_redirect.so"
+CloudRedirectCLI="$CR_RAW/cloud_redirect_cli"
+REPO_RAW="$CR_RAW"
+SHA256_DGSC="08951d8e998d97dc4a35cb9376c888b98fa5dfb3dbf03d2fc96299403fd00422"
+SHA256_NETSOCK="0c9d0fd5e5f7aa90a67f6afaa2959bdd0f2ee87505909c3e31bdd899e080cf52"
+
+# ── Cores ──────────────────────────────────────────────────────────────────
+c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
+c_red='\033[1;31m'; c_cyan='\033[1;36m'; c_bold='\033[1m'
+info()  { printf "${c_cyan}[info]${c_reset} %s\n" "$*"; }
+ok()    { printf "${c_green}[ ok ]${c_reset} %s\n" "$*"; }
+warn()  { printf "${c_yellow}[aviso]${c_reset} %s\n" "$*" >&2; }
+die()   { printf "${c_red}[erro]${c_reset} %s\n" "$*" >&2; exit 1; }
+titulo(){ printf "\n${c_bold}==> %s${c_reset}\n" "$*"; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-DIR_DADOS="$HOME/.local/share"
-DIR_APPS="$DIR_DADOS/applications"
-DIR_ICONS="$DIR_DADOS/icons/hicolor/256x256/apps"
-DIR_SLS="$DIR_DADOS/SLSsteam"
-DIR_CFG_SLS="$HOME/.config/SLSsteam"
-DIR_CR="$DIR_DADOS/CloudRedirect"
-DIR_CR_APP="$DIR_CR/app"
-DIR_CR_SRC="$DIR_CR/src"
-DIR_HEADCRAB="$HOME/.headcrab"
-
-PIN_CLIENT="${CR_PIN_CLIENT:-1}"
-CLIENT_VER="${CR_CLIENT_VER:-1788652215}"
-
-URL_MANIFEST_LINUX="https://cdn.jsdelivr.net/gh/Deadboy666/SteamTracking@refs/heads/headcrab/ClientManifest/steam_client_ubuntu12"
-URL_MANIFEST_DECK="https://cdn.jsdelivr.net/gh/Deadboy666/SteamTracking@refs/heads/headcrab/ClientManifest/steam_client_steamdeck_stable_ubuntu12"
-URL_SOURCES="https://cdn.jsdelivr.net/gh/Deadboy666/h3adcr-b-modul3s@refs/heads/main/stable-sources.txt"
-URL_DGSC="https://github.com/Deadboy666/h3adcr-b-modul3s/raw/refs/heads/main/dgsc"
-URL_CLIENT_SH="https://cdn.jsdelivr.net/gh/Deadboy666/SteamTracking@refs/heads/master/ClientExtracted/steam.sh"
-URL_NETSOCK="https://cdn.jsdelivr.net/gh/yesyes0649/steamnetsock-patch@builds/fix.so"
-URL_DOWNGRADE="http://localhost:1666/"
-
-SHA256_DGSC="08951d8e998d97dc4a35cb9376c888b98fa5dfb3dbf03d2fc96299403fd00422"
-SHA256_NETSOCK="0c9d0fd5e5f7aa90a67f6afaa2959bdd0f2ee87505909c3e31bdd899e080cf52"
-
-MARCADOR_SLS="# --- SLSsteam injetado pelo instalador do CloudRedirect ---"
-FIM_MARCADOR_SLS="# --- fim da injecao SLSsteam ---"
-MARCA_PROPRIA="Gerado pelo instalador SLSsteam + CloudRedirect pt-BR"
-
-REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
-CR_BRANCH="${CR_BRANCH:-master}"
-
-SKIP_DEPS="${CR_INSTALL_SKIP_DEPS:-0}"
-VERBOSE="${VERBOSE:-0}"
-UPDATE_SLS="${CR_UPDATE_SLS:-0}"
-
-c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
-c_red='\033[1;31m'; c_cyan='\033[1;36m'; c_bold='\033[1m'
-
-info() { printf "${c_cyan}[info]${c_reset} %s\n" "$*"; }
-ok()   { printf "${c_green}[ ok ]${c_reset} %s\n" "$*"; }
-warn() { printf "${c_yellow}[aviso]${c_reset} %s\n" "$*" >&2; }
-die()  { printf "${c_red}[erro]${c_reset} %s\n" "$*" >&2; exit 1; }
-titulo() { printf "\n${c_bold}==> %s${c_reset}\n" "$*"; }
-
-run_cmd() {
-    if [ "$VERBOSE" = "1" ]; then "$@"; else "$@" >/dev/null 2>&1; fi
-}
-
-need_cmd() { command -v "$1" >/dev/null 2>&1 || die "comando ausente: $1"; }
-
-ler_os() {
-    local f
-    OS_ID=""
-    OS_ID_LIKE=""
-    for f in /etc/os-release /usr/lib/os-release; do
-        [ -r "$f" ] || continue
-        . "$f"
-        break
-    done
-    OS_ID="${ID:-}"
-    OS_ID_LIKE="${ID_LIKE:-}"
-}
-
-eh_arch() {
-    ler_os
-    case " $OS_ID $OS_ID_LIKE " in
-        *" arch "*|*" cachyos "*) return 0 ;;
-    esac
-    return 1
-}
-
-eh_debian() {
-    ler_os
-    case " $OS_ID $OS_ID_LIKE " in
-        *" debian "*|*" ubuntu "*) return 0 ;;
-    esac
-    return 1
-}
-
-eh_steamos() { ler_os; [ "${OS_ID:-}" = "steamos" ]; }
-eh_void() { ler_os; [ "${OS_ID:-}" = "void" ]; }
-eh_cachy() { ler_os; [ "${OS_ID:-}" = "cachyos" ]; }
-eh_bazzite() { ler_os; [ "${OS_ID:-}" = "bazzite" ]; }
-
-url_manifesto() {
-    local raiz="$1"
-    if eh_steamos; then
-        printf '%s\n' "$URL_MANIFEST_DECK"
-    elif eh_bazzite || eh_cachy; then
-        if [ -f "$raiz/package/steam_client_steamdeck_stable_ubuntu12.installed" ]; then
-            printf '%s\n' "$URL_MANIFEST_DECK"
-        else
-            printf '%s\n' "$URL_MANIFEST_LINUX"
-        fi
-    else
-        printf '%s\n' "$URL_MANIFEST_LINUX"
-    fi
-}
-
-nome_manifesto() {
-    case "$1" in
-        *steamdeck*) printf 'steam_client_steamdeck_stable_ubuntu12.manifest\n' ;;
-        *) printf 'steam_client_ubuntu12.manifest\n' ;;
-    esac
-}
-
-show_help() {
-    cat <<'EOF'
-Instalador do SLSsteam + CloudRedirect (GUI nativa em pt-BR, modo h3adcr-b)
-
-Uso: curl -fsSL <url> | bash -s -- [opcoes]
-     ./scripts/install.sh [opcoes]
-
-Trava o cliente Steam na versao compativel com o SLSsteam (rebaixa via
-servidor de depot local quando preciso) e grava o steam.cfg para a Steam
-nao se autoatualizar e quebrar o hook. O SLSsteam entra por extracao
-direta da release oficial com merge do config; o steam.sh e substituido
-pelo lancador com LD_AUDIT. O CloudRedirect e o build pt-BR deste repo.
-
-Opcoes:
-  --skip-deps       Nao instala as dependencias de sistema
-  --update-sls      Reinstala o SLSsteam na ultima release mesmo se ja existir
-  --no-pin-client   Nao trava nem rebaixa o cliente Steam (nao recomendado)
-  --verbose         Mostra a saida de todos os comandos
-  -h, --help        Mostra esta ajuda
-
-Variaveis de ambiente:
-  CR_INSTALL_SKIP_DEPS=1   mesmo que --skip-deps
-  CR_UPDATE_SLS=1          mesmo que --update-sls
-  CR_PIN_CLIENT=0          mesmo que --no-pin-client
-  CR_CLIENT_VER=...        versao do cliente Steam a travar (padrao: a do h3adcr-b)
-  VERBOSE=1                mesmo que --verbose
-  CR_BRANCH=master         branch do repo a compilar
-  GITHUB_TOKEN             token para a API do GitHub (evita o limite)
-EOF
-    exit 0
-}
-
-for arg in "$@"; do
-    case "$arg" in
-        --skip-deps) SKIP_DEPS=1 ;;
-        --update-sls) UPDATE_SLS=1 ;;
-        --no-pin-client) PIN_CLIENT=0 ;;
-        --verbose)   VERBOSE=1 ;;
-        -h|--help)   show_help ;;
-        *) die "opcao desconhecida: $arg (use --help)" ;;
-    esac
-done
-
-SUDO=""
-if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
-
-api_github() {
-    local path="$1" saida="$2"
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-        curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" \
-             -H 'Accept: application/vnd.github+json' \
-             -o "$saida" "https://api.github.com$path"
-    else
-        curl -fsSL -H 'Accept: application/vnd.github+json' \
-             -o "$saida" "https://api.github.com$path"
-    fi
-}
-
-ultima_tag_sls() {
-    local rel_tmp tag redir
-    rel_tmp="$(mktemp)" || return 1
-    if api_github "/repos/AceSLS/SLSsteam/releases/latest" "$rel_tmp" 2>/dev/null; then
-        tag="$(grep -m1 '"tag_name"' "$rel_tmp" 2>/dev/null | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-        rm -f "$rel_tmp"
-        [ -n "$tag" ] && { printf '%s\n' "$tag"; return 0; }
-    fi
-    rm -f "$rel_tmp"
-    redir="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
-        https://github.com/AceSLS/SLSsteam/releases/latest 2>/dev/null)" || return 1
-    tag="${redir##*/}"
-    [ -n "$tag" ] && [ "$tag" != "latest" ] && { printf '%s\n' "$tag"; return 0; }
-    return 1
-}
-
+# Download atomico (temp + mv): nunca deixa arquivo parcial no destino.
 baixar() {
-    local tmp
-    info "baixando $(basename "$2")"
-    tmp="$(mktemp "$2.tmp.XXXXXX")" || die "impossivel criar temporario para $2"
-    run_cmd curl -fL --retry 3 --retry-delay 2 -o "$tmp" "$1" \
-        || { rm -f "$tmp"; die "falha no download: $1"; }
-    mv -f "$tmp" "$2"
+    local url="$1" alvo="$2"
+    curl -fsSL --retry 3 --connect-timeout 15 -o "$TMP/dl.$$" "$url" \
+        || die "falha ao baixar $url"
+    mv -f "$TMP/dl.$$" "$alvo"
 }
 
 verificar_sha256() {
     local alvo="$1" esperado="$2" atual
     atual="$(sha256sum "$alvo" | awk '{print $1}')"
-    [ "$atual" = "$esperado" ] || die "hash de $(basename "$alvo") nao confere (esperado ${esperado:0:12}, obtido ${atual:0:12}); abortando"
+    [ "$atual" = "$esperado" ] \
+        || die "hash de $(basename "$alvo") nao confere (esperado ${esperado:0:12}, obtido ${atual:0:12}); abortando"
 }
 
 BACKUPS_FEITOS=""
-
 backup_cfg() {
     local cfg="$1" bkp
     [ -f "$cfg" ] || return 0
@@ -213,719 +96,960 @@ backup_cfg() {
     ok "backup em $bkp"
 }
 
-matar_steam() {
-    info "encerrando a Steam..."
-    killall -q steam steamwebhelper 2>/dev/null || true
-    sleep 2
-}
+    read_os_release(){
+        local f
+        OS_ID=""; OS_ID_LIKE=""
+        for f in /etc/os-release /usr/lib/os-release; do
+            [ -r "$f" ] || continue
+            . "$f"
+            break
+        done
+        OS_ID=${ID:-}
+        OS_ID_LIKE=${ID_LIKE:-}
+    }
+    archcheck(){
+        read_os_release
+        case " $OS_ID $OS_ID_LIKE " in
+            *" arch "*|*" cachyos "*) return 0 ;;
+        esac
+        return 1
+        }
+    debiancheck(){
+        read_os_release
+        case " $OS_ID $OS_ID_LIKE " in
+            *" debian "*|*" ubuntu "*) return 0 ;;
+        esac
+        return 1
+        }
+    steamoscheck(){
+        read_os_release
+        [ "$OS_ID" = "steamos" ]
+        }
+    voidcheck(){
+        read_os_release
+        [ "$OS_ID" = "void" ]
+        }
+    cachyoscheck(){
+        read_os_release
+        [ "$OS_ID" = "cachyos" ]
+        }
+    bazzitecheck(){
+        read_os_release
+        [ "$OS_ID" = "bazzite" ]
+        }
+    flatpakcheck(){
+        [ -d "$FlatpakSteamInstallDir" ]
+        }
+    crconfigcheck(){
+      whereSLSsteamconfig
+        grep -F "DisableCloud: no" config.yaml &> /dev/null
+        }
 
-raizes_steam() {
-    local cand raiz
-    for cand in "$HOME/.steam/steam" "$HOME/.local/share/Steam"; do
-        [ -d "$cand" ] || continue
-        raiz="$(realpath "$cand" 2>/dev/null || echo "$cand")"
-        printf '%s\n' "$raiz"
-    done | awk '!visto[$0]++'
-}
-
-versao_cliente() {
-    local raiz="$1" man ver
-    for man in steam_client_ubuntu12.manifest steam_client_publicbeta_ubuntu12.manifest \
-               steam_client_steamdeck_stable_ubuntu12.manifest; do
-        [ -f "$raiz/package/$man" ] || continue
-        ver="$(grep -m1 '"version"' "$raiz/package/$man" 2>/dev/null \
-               | sed -E 's/.*"version"[[:space:]]*"([0-9]+)".*/\1/')"
-        [ -n "$ver" ] && { printf '%s\n' "$ver"; return 0; }
-    done
-    return 1
-}
-
-garantir_steam_cfg() {
-    local raiz="$1" cfg="$raiz/steam.cfg"
-    if [ -f "$cfg" ]; then
-        ok "steam.cfg ja existe em $raiz (updates travados)"
-        return 0
-    fi
-    cat > "$cfg" <<'EOF'
-BootStrapperInhibitAll=enable
-BootStrapperForceSelfUpdate=disable
+    SetupHeadcrab_Updater(){
+		mkdir -p $ApplicationDirectory
+		mkdir -p $IconDirectory
+		cd $IconDirectory/
+		wget -O headcrab.png "$Headcrab_Icon" &> /dev/null
+		cd $ApplicationDirectory/
+			if [ -f "$SCRIPT_DIR/install.sh" ]; then
+				updater_exec="bash \"$SCRIPT_DIR/install.sh\""
+			else
+				updater_exec="bash -c 'curl -fsSL \"$REPO_RAW/scripts/install.sh\" | bash'"
+			fi
+			cat > headcrab.desktop <<EOF
+[Desktop Entry]
+Version=1.0
+Name=Headcrab Updater
+Comment=Atualiza cliente e SLSsteam (pt-BR, CloudRedirect deste repo)
+Exec=$updater_exec
+Terminal=true
+Icon=headcrab
+Type=Application
+Categories=Utility;Application;
 EOF
-    ok "steam.cfg criado em $raiz (autoupdate da Steam desativado)"
-}
+		    chmod +x headcrab.desktop
+			update-desktop-database $ApplicationDirectory
+			echo "Headcrab Updater Now In Your Applications Menu"
+			echo "Can Open Up Headcrab Updater To Update To Latest Version."
+	}
 
-remover_pacote_slssteam() {
-    local pkgs
-    command -v pacman >/dev/null 2>&1 || return 0
-    pkgs="$(pacman -Qq 2>/dev/null | grep -E '^slssteam(-git)?$' || true)"
-    [ -n "$pkgs" ] || return 0
-    warn "removendo pacote de sistema do SLSsteam: $pkgs"
-    $SUDO pacman -Rns --noconfirm $pkgs \
-        || die "falha ao remover $pkgs"
-}
-
-desativar_wrapper_sls() {
-    local alvo="$DIR_SLS/path/steam"
-    if [ -e "$alvo" ] && [ ! -L "$alvo" ]; then
-        mv -f "$alvo" "$alvo.bak"
-        ok "wrapper do instalador oficial desativado ($alvo.bak)"
-    fi
-}
-
-travar_cliente_steam() {
-    if [ "$PIN_CLIENT" != "1" ]; then
-        info "travamento do cliente desativado (--no-pin-client)"
-        return 0
-    fi
-
-    local raiz ver man_tmp src_tmp dgsc url_man nome_man
-    while IFS= read -r raiz; do
-        [ -n "$raiz" ] || continue
-        [ -d "$raiz/package" ] || { warn "sem pasta package em $raiz; pulando"; continue; }
-
-        ver="$(versao_cliente "$raiz" || true)"
-        if [ "$ver" = "$CLIENT_VER" ]; then
-            ok "cliente Steam compativel em $raiz ($ver)"
-            garantir_steam_cfg "$raiz"
-            continue
+    SteamOSClientCheck(){
+        if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable"
+        elif [ -f steam_client_steamdeck_publicbeta_ubuntu12.manifest ]; then
+            versionnumber=$(grep '"version"' steam_client_steamdeck_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+			echo "SteamClientChannel: Beta"
+			echo "Reverting To Stable Client With DGSC"
+		else
+			echo "Unknown Version Number"
         fi
-
-        warn "cliente em $raiz na versao ${ver:-desconhecida}; compativel: $CLIENT_VER"
-        warn "rebaixando o cliente (a Steam sera encerrada)..."
-
-        url_man="$(url_manifesto "$raiz")"
-        nome_man="$(nome_manifesto "$url_man")"
-        man_tmp="$TMP/$nome_man"
-        src_tmp="$TMP/sources.txt"
-        baixar "$url_man" "$man_tmp"
-        baixar "$URL_SOURCES" "$src_tmp"
-        ver="$(grep -m1 '"version"' "$man_tmp" | sed -E 's/.*"version"[[:space:]]*"([0-9]+)".*/\1/')"
-        [ "$ver" = "$CLIENT_VER" ] \
-            || die "manifesto remoto na versao $ver, esperado $CLIENT_VER; abortando antes de mexer no package/"
-        [ -s "$src_tmp" ] || die "sources.txt vazio; abortando"
-
-        mkdir -p "$DIR_HEADCRAB"
-        dgsc="$DIR_HEADCRAB/dgsc"
-        if [ ! -x "$dgsc" ]; then
-            baixar "$URL_DGSC" "$dgsc"
-            chmod +x "$dgsc"
-        fi
-        verificar_sha256 "$dgsc" "$SHA256_DGSC"
-
-        local lancador
-        lancador="$(command -v steam || true)"
-        [ -n "$lancador" ] || die "comando steam nao encontrado no PATH"
-        [ -d "$raiz/package" ] || die "diretorio $raiz/package inexistente; abortando"
-
-        matar_steam
-        rm -f "$raiz/package"/*
-        cp "$man_tmp" "$src_tmp" "$raiz/package/"
-        ( cd "$raiz/package" && "$dgsc" --port 1666 --silent &> /dev/null & )
-        sleep 1
-
-        run_cmd timeout 900 env -u LD_AUDIT -u LD_PRELOAD $lancador \
-            -forcesteamupdate -forcepackagedownload \
-            -overridepackageurl "$URL_DOWNGRADE" -exitsteam \
-            || warn "atualizacao forcada retornou erro; confira a versao abaixo"
-        pkill -f "$dgsc" 2>/dev/null || true
-
-        ver="$(versao_cliente "$raiz" || true)"
-        [ "$ver" = "$CLIENT_VER" ] \
-            || die "cliente ainda em ${ver:-desconhecida}; rebaixamento falhou"
-        ok "cliente travado em $CLIENT_VER"
-        garantir_steam_cfg "$raiz"
-    done < <(raizes_steam)
-}
-
-mesclar_config_sls() {
-    local cfg="$1" modelo="$2" tmp_cfg bkp
-    [ -f "$modelo" ] || return 0
-    grep -q '^DisableFamilyShareLock:' "$modelo" \
-        || { warn "modelo de config invalido; mantido o atual"; return 0; }
-    mkdir -p "$(dirname "$cfg")"
-    [ -f "$cfg" ] || { cp "$modelo" "$cfg"; return 0; }
-
-    tmp_cfg="$(mktemp "${cfg}.tmp.XXXXXX")" || return 0
-    if ! awk '
-        NR == FNR {
-            if ($0 ~ /^[A-Za-z_][A-Za-z0-9_]*:/) {
-                key = $0
-                sub(/:.*/, "", key)
-                current = key
-                if (!(key in present)) { order[++n] = key }
-                present[key] = 1
-                saved[key] = $0 ORS
-                next
-            }
-            if (current != "" && $0 ~ /^[[:space:]]+/) {
-                saved[current] = saved[current] $0 ORS
-            }
-            next
+            echo "SteamClientType: SteamOS"
         }
-        /^[A-Za-z_][A-Za-z0-9_]*:/ {
-            key = $0
-            sub(/:.*/, "", key)
-            printf "%s", prefix
-            prefix = ""
-            if (key in present) {
-                printf "%s", saved[key]
-                emitted[key] = 1
-                use_template = 0
-            } else {
-                print
-                use_template = 1
+
+	BazziteClientCheck(){
+        if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable (Bazzite-Deck)"
+        elif [ -f steam_client_steamdeck_publicbeta_ubuntu12.manifest ]; then
+            versionnumber=$(grep '"version"' steam_client_steamdeck_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta (Bazzite-Deck)"
+		elif [ -f "steam_client_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable (Bazzite-Desktop)"
+		else
+            versionnumber=$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta (Bazzite-Desktop)"
+        fi
+            echo "SteamClientType: Bazzite"
+        }
+
+	CachyClientCheck(){
+        if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable (CachyOS-Handheld)"
+        elif [ -f steam_client_steamdeck_publicbeta_ubuntu12.manifest ]; then
+            versionnumber=$(grep '"version"' steam_client_steamdeck_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta (CachyOS-Handheld)"
+		elif [ -f "steam_client_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable (CachyOS-Desktop)"
+		else
+            versionnumber=$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta (CachyOS-Desktop)"
+        fi
+            echo "SteamClientType: CachyOS"
+        }
+
+    FlatpakClientCheck(){
+        if [ -f "steam_client_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable"
+        else
+            versionnumber=$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta"
+        fi
+            echo "SteamClientType: Flatpak"
+        }
+
+    NativeClientCheck(){
+        if [ -f "steam_client_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable"
+        else
+            versionnumber=$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta"
+        fi
+            echo "SteamClientType: Native"
+        }
+
+	VoidClientCheck(){
+        if [ -f "steam_client_ubuntu12.manifest" ]; then
+            versionnumber=$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Stable"
+        else
+            versionnumber=$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print $4}')
+            echo "SteamClientChannel: Beta"
+        fi
+            echo "SteamClientType: Void"
+        }
+
+    CheckClientInfo(){
+        echo "SteamClientInfo:"
+        wheresteampackage
+        if steamoscheck; then
+            SteamOSClientCheck
+		elif bazzitecheck; then
+            BazziteClientCheck
+		elif cachyoscheck; then
+			CachyClientCheck
+		elif voidcheck; then
+			VoidClientCheck
+        elif flatpakcheck; then
+            FlatpakClientCheck
+        else
+            NativeClientCheck
+        fi
+            echo "SteamClientVersion: $versionnumber"
             }
-            have_key = 1
-            next
+
+    CheckHeadcrabCompatibility(){
+            echo "=================================================="
+        CheckClientInfo
+        if [[ "$versionnumber" == "$HeadcrabCompatibleClientVer" ]]; then
+            echo "ClientCompatCheck: SteamClientVersion Compatible"
+            echo "================================================="
+            clientinstall
+        else
+            echo "ClientCompatCheck: SteamClientVersion Incompatible"
+            echo "=================================================="
+            echo "Bootstrapping Injector"
+            clientdowngrade
+        fi
         }
-        have_key && /^[[:space:]]+/ {
-            if (use_template) { print }
-            next
+
+    preinstallchecks(){
+        InstallVoidDeps
+		InstallDebianDeps
+		InstallArchDeps
+        RemoveArchPkg
+        DisableSLSsteamPath
         }
-        { prefix = prefix $0 ORS }
-        END {
-            for (i = 1; i <= n; i++) {
-                k = order[i]
-                if (!(k in emitted)) { printf "%s", saved[k] }
+
+    InstallDebianDeps() {
+	    if debiancheck; then
+		if apt-cache search --names-only '^libcurl4t64$' | grep -q "libcurl4t64"; then
+		    pkg_name="libcurl4t64"
+		else
+		    pkg_name="libcurl4"
+		fi
+		target_pkg="${pkg_name}:i386"
+		if dpkg -s "$target_pkg" >/dev/null 2>&1; then
+		    echo -e "$target_pkg already installed"
+		    return 0
+		fi
+		if ! dpkg --print-foreign-architectures | grep -q "i386"; then
+		    echo "Adding i386 architecture..."
+		    sudo dpkg --add-architecture i386
+		    sudo apt-get update >/dev/null 2>&1
+		fi
+		if sudo apt-get install -y "$target_pkg" >/dev/null 2>&1; then
+		    echo -e "$target_pkg installed successfully"
+		else
+		    echo -e "$target_pkg failed to install"
+		fi
+        fi
+	    }
+
+	InstallVoidDeps(){
+        if voidcheck; then
+            if ! command -v xbps-install >/dev/null 2>&1; then
+                echo "Void Linux detected but xbps-install was not found in PATH"
+                return 1
+            fi
+            local pkg cmd install_cmd
+            local missing_pkgs=() missing_cmds=()
+            for pkg in wget curl grep gawk sed 7zip; do
+                case "$pkg" in
+                    gawk) cmd="awk" ;;
+                    7zip) cmd="7z" ;;
+                    *) cmd="$pkg" ;;
+                esac
+                if ! command -v "$cmd" >/dev/null 2>&1; then
+                    missing_pkgs+=("$pkg")
+                fi
+            done
+            if [ "${#missing_pkgs[@]}" -eq 0 ]; then
+                echo "Void dependencies already installed"
+                return 0
+            fi
+            if [ "$(id -u)" -eq 0 ]; then
+                install_cmd="xbps-install"
+            elif command -v sudo >/dev/null 2>&1; then
+                install_cmd="sudo xbps-install"
+            else
+                echo "Void dependencies missing: ${missing_pkgs[*]}"
+                echo "Install them with: xbps-install ${missing_pkgs[*]}"
+                echo "Re-run as root or install sudo for automatic dependency installation"
+                return 1
+            fi
+            echo "Installing missing Void dependencies: ${missing_pkgs[*]}"
+            if ! $install_cmd -y "${missing_pkgs[@]}"; then
+                echo "Failed to install Void dependencies: ${missing_pkgs[*]}"
+                return 1
+            fi
+            for pkg in wget curl grep gawk sed 7zip; do
+                case "$pkg" in
+                    gawk) cmd="awk" ;;
+                    7zip) cmd="7z" ;;
+                    *) cmd="$pkg" ;;
+                esac
+                if ! command -v "$cmd" >/dev/null 2>&1; then
+                    missing_cmds+=("$pkg")
+                fi
+            done
+            if [ "${#missing_cmds[@]}" -ne 0 ]; then
+                echo "Void dependencies still missing after install: ${missing_cmds[*]}"
+                return 1
+            fi
+            echo "Void dependencies installed successfully"
+        fi
+    }
+
+	InstallArchDeps(){
+		if archcheck; then
+		 local packages=("wget" "curl" "grep" "awk" "sed" "7zip")
+	    local to_install=()
+	    for pkg in "${packages[@]}"; do
+	        if ! pacman -Qs "$pkg" &>/dev/null; then
+	            to_install+=("$pkg")
+	        fi
+	    done
+	    if [ ${#to_install[@]} -eq 0 ]; then
+	        echo "All required packages are already installed."
+	    else
+	        echo "Installing missing packages: ${to_install[*]}"
+	        sudo pacman -S "${to_install[@]}" --noconfirm
+	    fi
+		fi
+	}
+
+    RemoveArchPkg(){
+        if archcheck; then
+        installed_pkgs=$(pacman -Qq | grep -E '^slssteam(-git)?$' || true)
+        if [ -n "$installed_pkgs" ]; then
+            echo "Headcrab Will Transition To The Install To One That Can Seemlessly Update."
+			echo "This Will Replace The System Package Of SLSsteam With One That Is Local."
+            echo "Uninstalling Arch packages: $installed_pkgs"
+            sudo pacman -Rns --noconfirm $installed_pkgs
+        fi
+        fi
+    }
+
+    DisableSLSsteamPath(){
+        local local_target="$SLSsteamInstallDir/path/steam"
+        local flatpak_target="$FlatpakSLSsteamInstallDir/path/steam"
+        local acted=0
+        if [ -e "$flatpak_target" ]; then
+            echo "Found: $flatpak_target"
+            echo "Renaming $flatpak_target -> ${flatpak_target}.bak"
+            mv -- "$flatpak_target" "${flatpak_target}.bak"
+            acted=1
+        fi
+        if [ -e "$local_target" ]; then
+            echo "Found: $local_target"
+            echo "Renaming $local_target -> ${local_target}.bak"
+            mv -- "$local_target" "${local_target}.bak"
+            acted=1
+        fi
+        if [ "$acted" -eq 0 ]; then
+            echo "Not present: $flatpak_target"
+            echo "Not present: $local_target"
+        fi
+    }
+
+	TrashiteWatMani(){
+		wheresteampackage
+		if [ -f "steam_client_steamdeck_stable_ubuntu12.installed" ]; then
+			echo "Headcrab Downloading Bazzite-Deck Client Manifest"
+			wget -O steam_client_steamdeck_stable_ubuntu12.manifest "$DeckClientManifest" &> /dev/null
+		else
+			echo "Headcrab Downloading Bazzite-Desktop Client Manifest"
+			wget -O steam_client_ubuntu12 "$LinuxClientManifest" &> /dev/null
+		fi
+			echo "" &> /dev/null
+		}
+
+	CachyWatMani(){
+		wheresteampackage
+		if [ -f "steam_client_steamdeck_stable_ubuntu12.installed" ]; then
+			echo "Headcrab Downloading CachyOS-Handheld Client Manifest"
+			wget -O steam_client_steamdeck_stable_ubuntu12.manifest "$DeckClientManifest" &> /dev/null
+		else
+			echo "Headcrab Downloading CachyOS-Desktop Client Manifest"
+			wget -O steam_client_ubuntu12 "$LinuxClientManifest" &> /dev/null
+		fi
+			echo "" &> /dev/null
+		}
+
+    DownloadClientManifest(){
+	    if steamoscheck; then
+	        echo "Headcrab Downloading Steamos Client Manifest.."
+	        wget -O steam_client_steamdeck_stable_ubuntu12.manifest "$DeckClientManifest" &> /dev/null
+		elif bazzitecheck; then
+			TrashiteWatMani
+		elif cachyoscheck; then
+			CachyWatMani
+	    else
+	        echo "Headcrab Downloading Linux Client Manifest.."
+	        wget -O steam_client_ubuntu12 "$LinuxClientManifest" &> /dev/null
+	    fi
+	        echo "Client Manifest Downloaded"
+    }
+
+    download_dgsc(){
+        mkdir -p $Headcrab_Downgrader_Path
+        cd $Headcrab_Downgrader_Path/
+        if [ -f "$Headcrab_Downgrader_Path/dgsc" ]; then
+            echo "Headcrab_dgsc Downloaded Already."
+        else
+            echo "Downloading Headcrab_dgsc.."
+            baixar "$dgsc" "$Headcrab_Downgrader_Path/dgsc"
+            chmod +x dgsc
+            verificar_sha256 "$Headcrab_Downgrader_Path/dgsc" "$SHA256_DGSC"
+        fi
+          echo "" &> /dev/null
+        }
+
+        download_dlm(){
+        mkdir -p $Headcrab_Downgrader_Path
+        cd $Headcrab_Downgrader_Path/
+        if [ -f "$Headcrab_Downgrader_Path/dlm" ]; then
+            echo "Headcrab_dlm Downloaded Already."
+        else
+            echo "Downloading Headcrab_dlm.."
+            baixar "$dlm" "$Headcrab_Downgrader_Path/dlm"
+            chmod +x dlm
+        fi
+          echo "" &> /dev/null
+        }
+
+        dlm(){
+        download_dlm
+        echo "Running Fetching Client Update Headcrab_dlm.."
+        wheresteampackage
+        $Headcrab_Downgrader_Path/dlm --input-file sources.txt --max-concurrent 16
+        echo "Headcrab_dlm Fetched Client Update"
+        }
+
+    dgsc(){
+        download_dgsc
+        echo "Running Headcrab_dgsc.."
+        wheresteampackage
+        $Headcrab_Downgrader_Path/dgsc --port 1666 --silent & sleep 1s "$@"
+        }
+
+    prepdowngrade(){
+        wheresteamcfg
+        rm -f package/*
+        wheresteampackage
+        DownloadClientManifest
+		}
+
+    clientinstall(){
+        echo "the headcrab latches on the steam process.."
+		createsteamcfg
+        if steamoscheck; then
+            echo "Steamos Detected"
+            echo "Headcrab Bootstrapping SLSsteam.."
+           export_sls wheresteam -exitsteam
+		elif bazzitecheck; then
+			echo "Bazzite Detected"
+            echo "Headcrab Bootstrapping SLSsteam.."
+           export_sls wheresteam -exitsteam
+		elif cachyoscheck; then
+			echo "CachyOS Detected"
+            echo "Headcrab Bootstrapping SLSsteam.."
+           export_sls wheresteam -exitsteam
+        elif flatpakcheck; then
+            echo "Headcrab Bootstrapping SLSsteam.."
+			export_sls wheresteam -clearbeta steam://exit
+		elif voidcheck; then
+			echo "Void Linux"
+			echo "Headcrab Bootstrapping SLSsteam.."
+			export_sls wheresteam -clearbeta -exitsteam
+		else
+			export_sls wheresteam -clearbeta -exitsteam &> /dev/null
+        fi
+            echo "" &> /dev/null
             }
-            printf "%s", prefix
+
+    clientdowngrade(){
+        prepdowngrade
+        overideupdate
         }
-    ' "$cfg" "$modelo" > "$tmp_cfg"; then
-        warn "merge do config falhou; mantido o atual"
-        rm -f "$tmp_cfg"
-        return 0
-    fi
-    grep -q '^DisableFamilyShareLock:' "$tmp_cfg" \
-        || { warn "merge do config invalido; mantido o atual"; rm -f "$tmp_cfg"; return 0; }
-    if cmp -s "$cfg" "$tmp_cfg"; then
-        rm -f "$tmp_cfg"
-        return 0
-    fi
-    bkp="${cfg}.instbackup-$(date +%Y%m%d-%H%M%S)"
-    cp -a "$cfg" "$bkp"
-    mv -f "$tmp_cfg" "$cfg"
-    ok "config mesclado com o novo modelo (backup em $bkp)"
-}
 
-baixar_netsock() {
-    local dir="$DIR_CFG_SLS/tools/netsock"
-    mkdir -p "$dir"
-    if [ -s "$dir/netsock.so" ]; then
-        ok "netsock ja presente"
-    else
-        baixar "$URL_NETSOCK" "$dir/netsock.so"
-    fi
-    verificar_sha256 "$dir/netsock.so" "$SHA256_NETSOCK"
-}
+    nuketheclient(){
+                killall steam | true
+            }
 
-liberar_cloud_no_sls() {
-    local cfg="$1"
-    mkdir -p "$(dirname "$cfg")"
-    if [ ! -f "$cfg" ]; then
-        if [ -f "$TMP/sls/res/config.yaml" ]; then
-            cp "$TMP/sls/res/config.yaml" "$cfg"
+    wheresteam(){
+        if [ -d "$FlatpakSteamInstallDir" ]; then
+                flatpak run com.valvesoftware.Steam "$@" &> /dev/null
         else
-            printf 'DisableCloud: no\n' > "$cfg"
-        fi
-    fi
-    backup_cfg "$cfg"
-    if grep -q '^[[:space:]]*DisableCloud:' "$cfg"; then
-        sed -i -E 's/^([[:space:]]*DisableCloud:).*/\1 no/' "$cfg"
-    else
-        printf '\nDisableCloud: no\n' >> "$cfg"
-    fi
+                steam "$@" &> /dev/null
+            fi
+                echo "" &> /dev/null
+            }
 
-    garantir_notificacao_sls "$cfg"
-}
-
-garantir_notificacao_sls() {
-    local cfg="$1" val atual novo
-    [ -f "$cfg" ] || return 0
-    backup_cfg "$cfg"
-
-    if grep -q '^[[:space:]]*NotifyInit:' "$cfg"; then
-        sed -i -E 's/^([[:space:]]*NotifyInit:).*/\1 yes/' "$cfg"
-    else
-        printf '\nNotifyInit: yes\n' >> "$cfg"
-    fi
-
-    if eh_steamos; then
-        if grep -q '^[[:space:]]*SafeMode:' "$cfg"; then
-            sed -i -E 's/^([[:space:]]*SafeMode:).*/\1 yes/' "$cfg"
+    wheresteamdir(){
+        if [ -d "$FlatpakSteamInstallDir" ]; then
+                mkdir -p $FlatpakSLSsteamInstallDir
+				mkdir -p $FlatpakCloudRedirectDir
+                cp -f $InstallDir/library-inject.so $FlatpakSLSsteamInstallDir/
+                cp -f $InstallDir/SLSsteam.so $FlatpakSLSsteamInstallDir/
         else
-            printf '\nSafeMode: yes\n' >> "$cfg"
-        fi
-        return 0
-    fi
+                 mkdir -p $CloudRedirectDir
+				 mkdir -p $SLSsteamInstallDir
+                 mkdir -p $SLSsteamConfigDir
+                 cp -f $InstallDir/library-inject.so $SLSsteamInstallDir/
+                 cp -f $InstallDir/SLSsteam.so $SLSsteamInstallDir/
+            fi
+				echo "" &> /dev/null
+            }
 
-    if grep -q '^[[:space:]]*SafeMode:' "$cfg"; then
-        sed -i -E 's/^([[:space:]]*SafeMode:).*/\1 no/' "$cfg"
-    else
-        printf '\nSafeMode: no\n' >> "$cfg"
-    fi
-
-    if eh_cachy; then
-        if grep -q '^[[:space:]]*LogLevels:' "$cfg"; then
-            sed -i -E 's/^([[:space:]]*LogLevels:).*/\1 0x3f/' "$cfg"
+    wheresteamcfg(){
+        if [ -d "$FlatpakSteamInstallDir" ]; then
+               cd $FlatpakSteamInstallDir/
         else
-            printf '\nLogLevels: 0x3f\n' >> "$cfg"
-        fi
-        return 0
-    fi
+                cd $SteamInstallDir/
+            fi
+                echo "" &> /dev/null
+            }
 
-    val="$(awk '/^[[:space:]]*LogLevels:/ {print $2; exit}' "$cfg")"
-    if [ -z "$val" ]; then
-        printf '\nLogLevels: 0xff\n' >> "$cfg"
-        return 0
-    fi
-    case "$val" in
-        0[xX][0-9a-fA-F]*|[0-9]*) ;;
-        *)
-            warn "LogLevels '$val' fora do esperado em $cfg; nao alterado"
-            return 0
-            ;;
-    esac
-    atual=$((val))
-    novo=$((atual | 0xc0))
-    if [ "$novo" -ne "$atual" ]; then
-        sed -i -E "s/^([[:space:]]*LogLevels:[[:space:]]*)[^#[:space:]]*/\1$(printf '0x%x' "$novo")/" "$cfg"
-        ok "LogLevels $(printf '0x%x' "$atual") -> $(printf '0x%x' "$novo") em $cfg (notificacoes ligadas)"
-    fi
-}
-
-instalar_slssteam() {
-    if [ "$UPDATE_SLS" != "1" ] && [ -s "$DIR_SLS/SLSsteam.so" ]; then
-        ok "SLSsteam ja presente em $DIR_SLS"
-    else
-        local SEVENZ
-        SEVENZ="$(command -v 7z || command -v 7zz || command -v 7za || true)"
-        [ -n "$SEVENZ" ] || die "7zip ausente (no Arch: p7zip; no Debian: p7zip-full)"
-
-        matar_steam
-
-        info "consultando a ultima release..."
-        api_github "/repos/AceSLS/SLSsteam/releases/latest" "$TMP/rel.json" \
-            || die "nao foi possivel consultar a API do GitHub"
-        local tag
-        tag="$(grep -m1 '"tag_name"' "$TMP/rel.json" | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-        [ -n "$tag" ] || die "nao foi possivel ler a tag da release do SLSsteam"
-        info "release: $tag"
-
-        baixar "https://github.com/AceSLS/SLSsteam/releases/download/$tag/SLSsteam-Any-release.7z" \
-               "$TMP/slssteam.7z"
-        run_cmd "$SEVENZ" x -y "-o$TMP/sls" "$TMP/slssteam.7z"
-        [ -s "$TMP/sls/bin/SLSsteam.so" ] \
-            || die "o pacote do SLSsteam veio sem bin/SLSsteam.so"
-
-        mesclar_config_sls "$DIR_CFG_SLS/config.yaml" "$TMP/sls/res/config.yaml"
-
-        mkdir -p "$DIR_SLS"
-        cp -f "$TMP/sls/bin/"* "$DIR_SLS/"
-        [ -s "$DIR_SLS/SLSsteam.so" ] || die "falha ao copiar o SLSsteam.so"
-        [ -s "$DIR_SLS/library-inject.so" ] || warn "library-inject.so veio vazio do pacote upstream; ele sera omitido do LD_AUDIT"
-        ok "SLSsteam $tag instalado por extracao direta"
-        printf '%s\n' "$tag" > "$DIR_SLS/version"
-        ok "versao $tag registrada em $DIR_SLS/version (para o ASSella)"
-    fi
-
-    baixar_netsock
-
-    if [ ! -s "$DIR_SLS/version" ]; then
-        v="$(ultima_tag_sls 2>/dev/null || true)"
-        if [ -n "$v" ]; then
-            printf '%s\n' "$v" > "$DIR_SLS/version"
-            ok "versao $v registrada em $DIR_SLS/version (para o ASSella)"
+	wheresteampackage(){
+        if [ -d "$FlatpakSteamInstallDir" ]; then
+               cd $FlatpakSteamInstallDir/package
         else
-            warn "nao foi possivel descobrir a versao do SLSsteam para o ASSella (API com rate limit e redirect falhou; exporte GITHUB_TOKEN e rode de novo)"
+                cd $SteamInstallDir/package
+            fi
+                echo "" &> /dev/null
+            }
+
+    whereSLSsteamconfig(){
+        if [ -d "$FlatpakSLSsteamConfigDir" ]; then
+               mkdir -p $FlatpakSLSsteamConfigDir
+               cd $FlatpakSLSsteamConfigDir/
+        else
+                mkdir -p $SLSsteamConfigDir
+                cd $SLSsteamConfigDir/
+            fi
+                echo "" &> /dev/null
+            }
+
+    updateSLSsteamConfig(){
+        (
+            local latest_config="$1"
+            local config_file
+            local merged_config
+            local backup_base
+            local backup
+            local suffix=1
+
+            if [ ! -f "$latest_config" ]; then
+                return
+            fi
+
+            whereSLSsteamconfig
+            config_file="$PWD/config.yaml"
+
+            if [ ! -f "$config_file" ]; then
+                return
+            fi
+
+            if ! grep -q '^DisableFamilyShareLock:' "$latest_config"; then
+                echo "SLSsteam Config Template Is Invalid"
+                return
+            fi
+
+            merged_config=$(mktemp "${config_file}.tmp.XXXXXX") || return
+
+            if ! awk '
+                NR == FNR {
+                    if ($0 ~ /^[A-Za-z_][A-Za-z0-9_]*:/) {
+                        key = $0
+                        sub(/:.*/, "", key)
+                        current = key
+                        present[key] = 1
+                        saved[key] = $0 ORS
+                        next
+                    }
+                    if (current != "" && $0 ~ /^[[:space:]]+/) {
+                        saved[current] = saved[current] $0 ORS
+                    }
+                    next
+                }
+                /^[A-Za-z_][A-Za-z0-9_]*:/ {
+                    key = $0
+                    sub(/:.*/, "", key)
+                    printf "%s", prefix
+                    prefix = ""
+                    if (key in present) {
+                        printf "%s", saved[key]
+                        use_template = 0
+                    } else {
+                        print
+                        use_template = 1
+                    }
+                    have_key = 1
+                    next
+                }
+                have_key && /^[[:space:]]+/ {
+                    if (use_template) {
+                        print
+                    }
+                    next
+                }
+                {
+                    prefix = prefix $0 ORS
+                }
+                END {
+                    printf "%s", prefix
+                }
+            ' "$config_file" "$latest_config" > "$merged_config"; then
+                echo "SLSsteam Config Update Failed"
+                rm -f "$merged_config"
+                return
+            fi
+
+            if ! grep -q '^DisableFamilyShareLock:' "$merged_config"; then
+                echo "SLSsteam Config Update Failed"
+                rm -f "$merged_config"
+                return
+            fi
+
+            if cmp -s "$config_file" "$merged_config"; then
+                echo "SLSsteam Config Is Up To Date"
+                rm -f "$merged_config"
+                return
+            fi
+
+            backup_base="${config_file}.headcrab-$(date +%Y%m%d-%H%M%S)"
+            backup="$backup_base"
+            while [ -e "$backup" ]; do
+                backup="${backup_base}-${suffix}"
+                suffix=$((suffix + 1))
+            done
+
+            cp -a "$config_file" "$backup"
+            chmod --reference="$config_file" "$merged_config" 2>/dev/null || true
+            mv -f "$merged_config" "$config_file"
+
+            echo "SLSsteam Config Updated"
+            echo "Config Backup: $backup"
+        )
+    }
+
+    overideupdate(){
+        echo "the headcrab latches on the steam process.."
+		killall dgsc | true
+        if steamoscheck; then
+            echo "Steamos Detected"
+            createsteamcfg
+            echo "Headcrab Connecting to The Updater.."
+           export_sls wheresteam  -forcesteamupdate -forcepackagedownload -overridepackageurl "$Headcrab_Downgrade_URL" -exitsteam &> /dev/null
+		elif bazzitecheck; then
+			echo "Bazzite Detected"
+            createsteamcfg
+            echo "Headcrab Connecting to The Updater.."
+           export_sls wheresteam  -forcesteamupdate -forcepackagedownload -overridepackageurl "$Headcrab_Downgrade_URL" -exitsteam &> /dev/null
+        else
+            createsteamcfg
+            echo "Headcrab Connecting to The Updater.."
+           export_sls wheresteam  -forcesteamupdate -forcepackagedownload -overridepackageurl "$Headcrab_Downgrade_URL" -exitsteam &> /dev/null
         fi
-    fi
+            echo "Compatible Update Applied Via Headcrab_dgsc"
+            }
 
-    liberar_cloud_no_sls "$DIR_CFG_SLS/config.yaml"
-    ok "DisableCloud: no em $DIR_CFG_SLS/config.yaml"
-}
+    checkforsteamcfg(){
+    echo "the headcrab approaches.."
+    wheresteamcfg
+        nuketheclient
+        CheckHeadcrabCompatibility
+        conditioncheck
+        }
 
-garantir_plugins_yes() {
-    local cfg="$1"
-    mkdir -p "$(dirname "$cfg")"
-    [ -f "$cfg" ] || { printf 'Plugins: yes\n' > "$cfg"; return 0; }
-    if grep -qE '^[[:space:]]*Plugins:' "$cfg"; then
-        sed -i -E 's/^([[:space:]]*Plugins:).*/\1 yes/' "$cfg"
-    else
-        printf '\nPlugins: yes\n' >> "$cfg"
-    fi
-}
+    downloadSLSsteam(){
+            echo "Downloading Latest SLSsteam.."
+            mkdir -p $SCRIPT_DIR/SLSsteam_Download
+            cd SLSsteam_Download
+            local TAG
+            TAG=$(curl -sSL --connect-timeout 15 --max-time 30 \
+                -o /dev/null -w "%{url_effective}" \
+                "https://github.com/AceSLS/SLSsteam/releases/latest" 2>/dev/null)
+            TAG="${TAG##*/}"
+            SLS_TAG="$TAG"
+            baixar "https://github.com/AceSLS/SLSsteam/releases/download/$TAG/SLSsteam-Any-release.7z" \
+                   "$SCRIPT_DIR/SLSsteam_Download/SLSsteam-Any.7z"
+        }
 
-garantir_secoes_download() {
-    local cfg="$1" chave
-    for chave in AdditionalDepots DecryptionKeys; do
-        grep -qE "^[[:space:]]*$chave:" "$cfg" 2>/dev/null \
-            || printf '\n%s:\n' "$chave" >> "$cfg"
-    done
-}
+	downloadnetsock(){
+            echo "Downloading Latest Netsock Lib.."
+            mkdir -p ~/.config/SLSsteam/tools/netsock
+            cd ~/.config/SLSsteam/tools/netsock
+            baixar "https://cdn.jsdelivr.net/gh/yesyes0649/steamnetsock-patch@builds/fix.so" \
+                   "$HOME/.config/SLSsteam/tools/netsock/netsock.so"
+            verificar_sha256 "$HOME/.config/SLSsteam/tools/netsock/netsock.so" "$SHA256_NETSOCK"
+                echo "Downloaded Latest Netsock Lib."
+				cd $SCRIPT_DIR/
+        }
 
-instalar_plugins_sls() {
-    local origem="${FONTE:-}/sls-plugins"
-    if [ ! -d "$origem" ]; then
-        warn "pasta sls-plugins ausente em ${FONTE:-?}; pulando plugins Lua"
-        return 0
-    fi
-    mkdir -p "$DIR_CFG_SLS/plugins"
-    cp -f "$origem"/*.lua "$DIR_CFG_SLS/plugins/"
-    garantir_plugins_yes "$DIR_CFG_SLS/config.yaml"
-    garantir_secoes_download "$DIR_CFG_SLS/config.yaml"
-    ok "plugins Lua em $DIR_CFG_SLS/plugins (Plugins: yes)"
-}
+    export_sls(){
+        if [ -d "$FlatpakSteamInstallDir" ]; then
+                copySLSsteam
+                LD_AUDIT=$HOME/.var/app/com.valvesoftware.Steam/.local/share/SLSsteam/library-inject.so:$HOME/.var/app/com.valvesoftware.Steam/.local/share/SLSsteam/SLSsteam.so "$@"
+        else
+                copySLSsteam
+                LD_AUDIT=$HOME/.local/share/SLSsteam/library-inject.so:$HOME/.local/share/SLSsteam/SLSsteam.so "$@"
+        fi
+                echo &> /dev/null
+                }
 
-escrever_steam_cr() {
-    local sh="$1" raiz
-    raiz="$(cd "$(dirname "$sh")" && pwd)"
-    local cliente="$raiz/client.sh" sls_dir="$DIR_SLS" cr_so="$DIR_CR/cloud_redirect.so" log="$HOME/.SLSsteam.log"
-    local inj="$sls_dir/SLSsteam.so"
-    [ -s "$sls_dir/library-inject.so" ] && inj="$sls_dir/library-inject.so:$inj"
-    local INJECT_SLS="LD_AUDIT=$inj"
-    local INJECT_CR="LD_PRELOAD=$cr_so"
-    [ -f "$HOME/.config/CloudRedirect/DISABLED" ] && INJECT_CR=""
-    cat > "$sh" <<EOF
-#!/usr/bin/env bash
-# Gerado pelo instalador SLSsteam + CloudRedirect pt-BR (modo h3adcr-b, variante CR).
-# O steam.sh original esta em steam.sh.slssteam.bak; o scripts/uninstall.sh
-# do repositorio restaura tudo.
-STEAM_CLIENT="$cliente"
-INJECT_SLS="$INJECT_SLS"
-INJECT_CR="$INJECT_CR"
-SLS_LOG="$log"
-SteamInstallDir=\$HOME/.steam/steam
-read_os_release() {
-    local f
-    OS_ID=""
-    OS_ID_LIKE=""
-    for f in /etc/os-release /usr/lib/os-release; do
-        [ -r "\$f" ] || continue
-        . "\$f"
-        break
-    done
-    OS_ID=\${ID:-}
-    OS_ID_LIKE=\${ID_LIKE:-}
-}
-steamoscheck() { read_os_release; [ "\$OS_ID" = "steamos" ]; }
-voidcheck() { read_os_release; [ "\$OS_ID" = "void" ]; }
-cachyoscheck() { read_os_release; [ "\$OS_ID" = "cachyos" ]; }
-bazzitecheck() { read_os_release; [ "\$OS_ID" = "bazzite" ]; }
-SteamOSClientCheck() {
-    if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable"
-    elif [ -f steam_client_steamdeck_publicbeta_ubuntu12.manifest ]; then
-        versionnumber=\$(grep '"version"' steam_client_steamdeck_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta"
-    else
-        echo "Unknown Version Number"
-    fi
-    echo "SteamClientType: SteamOS"
-}
-BazziteClientCheck() {
-    if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable (Bazzite-Deck)"
-    elif [ -f steam_client_steamdeck_publicbeta_ubuntu12.manifest ]; then
-        versionnumber=\$(grep '"version"' steam_client_steamdeck_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta (Bazzite-Deck)"
-    elif [ -f "steam_client_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable (Bazzite-Desktop)"
-    else
-        versionnumber=\$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta (Bazzite-Desktop)"
-    fi
-    echo "SteamClientType: Bazzite"
-}
-CachyClientCheck() {
-    if [ -f "steam_client_steamdeck_stable_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_steamdeck_stable_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable (CachyOS-Handheld)"
-    elif [ -f steam_client_steamdeck_publicbeta_ubuntu12.manifest ]; then
-        versionnumber=\$(grep '"version"' steam_client_steamdeck_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta (CachyOS-Handheld)"
-    elif [ -f "steam_client_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable (CachyOS-Desktop)"
-    else
-        versionnumber=\$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta (CachyOS-Desktop)"
-    fi
-    echo "SteamClientType: CachyOS"
-}
-NativeClientCheck() {
-    if [ -f "steam_client_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable"
-    else
-        versionnumber=\$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta"
-    fi
-    echo "SteamClientType: Native"
-}
-VoidClientCheck() {
-    if [ -f "steam_client_ubuntu12.manifest" ]; then
-        versionnumber=\$(grep '"version"' steam_client_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Stable"
-    else
-        versionnumber=\$(grep '"version"' steam_client_publicbeta_ubuntu12.manifest | awk -F'"' '{print \$4}')
-        echo "SteamClientChannel: Beta"
-    fi
-    echo "SteamClientType: Void"
-}
-wheresteampackage() {
-    cd \$SteamInstallDir/package
-    echo "" &> /dev/null
-}
-CheckClientInfo() {
-    echo "SteamClientInfo:"
-    wheresteampackage
-    if steamoscheck; then
-        SteamOSClientCheck
-    elif bazzitecheck; then
-        BazziteClientCheck
-    elif cachyoscheck; then
-        CachyClientCheck
-    elif voidcheck; then
-        VoidClientCheck
-    else
-        NativeClientCheck
-    fi
-    echo "HeadcrabClientVersion: \$versionnumber"
-    echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    cat "\$SLS_LOG" 2>/dev/null || true
-    echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    command -v notify-send >/dev/null 2>&1 && notify-send -a "SLSSteamTools-BR" "SLSsteam + CloudRedirect" "Client: \$versionnumber" & sleep 1s || true
-}
-GameLauncher() {
-    CheckClientInfo
-    echo "Loaded SLSsteam" & export \$INJECT_SLS &> /dev/null
-    if [ -n "\$INJECT_CR" ]; then echo "Loaded CloudRedirect"; export \$INJECT_CR &> /dev/null; fi
-    source \$STEAM_CLIENT "\$@" &> /dev/null
-}
-steam() {
-    GameLauncher "\$@"
-}
-steam "\$@"
-EOF
-}
+    extractSLSsteam(){
+		downloadnetsock
+        downloadSLSsteam
+         7z x $SCRIPT_DIR/SLSsteam_Download/SLSsteam-Any.7z -aoa > /dev/null
+         updateSLSsteamConfig "$SCRIPT_DIR/SLSsteam_Download/res/config.yaml"
+         rm -rf tools
+         rm -rf res
+         rm setup.sh
+         rm -rf docs
+         rm SLSsteam-Any.7z
+		 echo "SLSsteam Downloaded: Latest"
+		 cd $InstallDir/
+         }
 
-despatch_steam() {
-    local sh="$1"
-    local tmp modo
-    tmp="$(mktemp)"
-    modo="$(stat -c '%a' "$sh")"
-    awk -v inicio="$MARCADOR_SLS" -v fim="$FIM_MARCADOR_SLS" '
-        $0 == inicio { pulando=1; next }
-        $0 == fim    { pulando=0; next }
-        !pulando
-    ' "$sh" > "$tmp"
-    chmod u+w "$sh"
-    cat "$tmp" > "$sh"
-    chmod "$modo" "$sh"
-    rm -f "$tmp"
-}
+    copySLSsteam(){
+        extractSLSsteam
+        wheresteamdir
+        rm -rf $InstallDir
+        }
 
-patch_steam() {
-    local sh="$1"
-    [ -f "$sh" ] || return 1
+    InstallSLSsteam(){
+        echo "Installing SLSsteam..."
+        if [ -d "$SLSsteamInstallDir" ]; then
+          copySLSsteam
+        else
+            copySLSsteam
+        fi
+            echo "" &> /dev/null
+        }
 
-    if grep -q "$MARCA_PROPRIA" "$sh"; then
-        info "atualizando o lancador em $sh"
-    elif grep -q "$MARCADOR_SLS" "$sh"; then
-        warn "removendo patch antigo com marcadores de $sh"
-        despatch_steam "$sh"
-    elif grep -q 'LD_AUDIT' "$sh" && grep -q 'SLSsteam\.so' "$sh"; then
-        warn "$sh ja tem um patch de LD_AUDIT de outra ferramenta; sera substituido"
-    fi
+    whereCR_Install(){
+       if [ -d "$FlatpakCloudRedirectDir" ]; then
+               cd $FlatpakSteamInstallDir
+        else
+                cd $CloudRedirectDir
+            fi
+                echo "" &> /dev/null
+            }
 
-    cp -n "$sh" "$sh.slssteam.bak" 2>/dev/null || true
+    # CloudRedirect DESTE repo: .so/CLI do repo + UI Qt6 nativa (sem flatpak).
+    obter_fonte_cr(){
+        if [ -d "$SCRIPT_DIR/../ui-linux" ] && [ -d "$SCRIPT_DIR/../.git" ]; then
+            FONTE_CR="$(cd "$SCRIPT_DIR/.." && pwd)"
+        else
+            FONTE_CR="$CloudRedirectDir/src"
+            if [ -d "$FONTE_CR/.git" ]; then
+                git -C "$FONTE_CR" fetch --depth 1 origin "$CR_BRANCH" || die "falha ao buscar $CR_BRANCH"
+                git -C "$FONTE_CR" reset --hard "origin/$CR_BRANCH" || die "falha ao atualizar"
+            else
+                mkdir -p "$CloudRedirectDir"
+                git clone --depth 1 --branch "$CR_BRANCH" "$REPO_CR" "$FONTE_CR" || die "falha ao clonar $REPO_CR"
+            fi
+        fi
+    }
 
-    local raiz client="$TMP/client.sh"
-    raiz="$(cd "$(dirname "$sh")" && pwd)"
-    if baixar "$URL_CLIENT_SH" "$client"; then
-        install -m 755 "$client" "$raiz/client.sh"
-    elif [ ! -f "$raiz/client.sh" ]; then
-        die "falha ao baixar o client.sh e nenhum anterior em $raiz"
-    else
-        warn "mantido o client.sh anterior em $raiz"
-    fi
+    crinstall(){
+      if crconfigcheck; then
+        echo "Downloading Latest Cloud Redirect Library"
+        whereCR_Install
+        obter_fonte_cr
+        mkdir -p "$CloudRedirectAppDir"
 
-    chmod u+w "$sh"
-    escrever_steam_cr "$sh"
-    chmod 555 "$sh"
-    chmod +x "$raiz/client.sh"
-    ok "steam.sh substituido em $sh (original em $sh.slssteam.bak)"
-    return 0
-}
+        echo "Baixando cloud_redirect.so do repo ($CR_BRANCH)..."
+        baixar "$CloudRedirectLib" "$CloudRedirectDir/cloud_redirect.so"
+        baixar "$CloudRedirectCLI" "$CloudRedirectDir/cloud_redirect_cli"
+        chmod 777 "$CloudRedirectDir/cloud_redirect_cli"
+        chmod 755 "$CloudRedirectDir/cloud_redirect.so"
+        if command -v file >/dev/null 2>&1; then
+            file -b "$CloudRedirectDir/cloud_redirect.so" | grep -q 'ELF 32-bit' \
+                || die "cloud_redirect.so nao e 32-bit; o runtime da Steam nao vai carregar"
+        fi
+        install -m 755 "$CloudRedirectDir/cloud_redirect.so" "$CloudRedirectAppDir/cloud_redirect.so"
+        install -m 755 "$CloudRedirectDir/cloud_redirect_cli" "$CloudRedirectAppDir/cloud_redirect_cli"
 
-obter_fonte() {
-    if [ -d "$SCRIPT_DIR/../ui-linux" ] && [ -d "$SCRIPT_DIR/../.git" ]; then
-        FONTE="$(cd "$SCRIPT_DIR/.." && pwd)"
-        info "usando o checkout local: $FONTE"
-    elif [ -d "$DIR_CR_SRC/.git" ]; then
-        info "atualizando o codigo em $DIR_CR_SRC"
-        run_cmd git -C "$DIR_CR_SRC" fetch --depth 1 origin "$CR_BRANCH" \
-            || die "falha ao buscar atualizacoes"
-        run_cmd git -C "$DIR_CR_SRC" reset --hard "origin/$CR_BRANCH" \
-            || die "falha ao atualizar o codigo"
-        FONTE="$DIR_CR_SRC"
-    else
-        info "clonando o CloudRedirect pt-BR ($CR_BRANCH)..."
-        mkdir -p "$DIR_CR"
-        run_cmd git clone --depth 1 --branch "$CR_BRANCH" "$REPO_CR" "$DIR_CR_SRC" \
-            || die "falha ao clonar $REPO_CR"
-        FONTE="$DIR_CR_SRC"
-    fi
-}
+        echo "Compilando a UI Qt6 do CloudRedirect (pode demorar)..."
+        cmake -S "$FONTE_CR/ui-linux" -B "$FONTE_CR/ui-linux/build" -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1 \
+            || die "falha no cmake configure da UI"
+        cmake --build "$FONTE_CR/ui-linux/build" --target cloud-redirect-ui -j"$(nproc 2>/dev/null || echo 2)" >/dev/null 2>&1 \
+            || die "falha ao compilar a UI"
+        [ -x "$FONTE_CR/ui-linux/build/cloud-redirect-ui" ] || die "binario da UI nao encontrado"
+        install -m 755 "$FONTE_CR/ui-linux/build/cloud-redirect-ui" "$CloudRedirectAppDir/cloud-redirect-ui"
 
-instalar_cloudredirect() {
-    obter_fonte
+        for tam in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
+            mkdir -p "$HOME/.local/share/icons/hicolor/$tam/apps"
+            install -m 644 "$FONTE_CR/ui-linux/src/cloudredirect.png" "$HOME/.local/share/icons/hicolor/$tam/apps/cloudredirect.png"
+        done
+        command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" || true
 
-    info "compilando a interface (Qt6, pode demorar alguns minutos)..."
-    run_cmd cmake -S "$FONTE/ui-linux" -B "$FONTE/ui-linux/build" \
-        -DCMAKE_BUILD_TYPE=Release || die "falha no cmake configure"
-    run_cmd cmake --build "$FONTE/ui-linux/build" --target cloud-redirect-ui \
-        -j"$(nproc 2>/dev/null || echo 2)" || die "falha ao compilar a GUI"
-
-    local gui="$FONTE/ui-linux/build/cloud-redirect-ui"
-    [ -x "$gui" ] || die "binario da GUI nao encontrado em $gui"
-
-    mkdir -p "$DIR_CR_APP"
-    install -m 755 "$gui" "$DIR_CR_APP/cloud-redirect-ui"
-    ok "GUI instalada em $DIR_CR_APP/cloud-redirect-ui"
-
-    local arq
-    for arq in cloud_redirect.so cloud_redirect_cli; do
-        [ -f "$FONTE/$arq" ] || die "$arq nao encontrado no repositorio"
-        install -m 755 "$FONTE/$arq" "$DIR_CR_APP/$arq"
-    done
-    if command -v file >/dev/null 2>&1; then
-        file -b "$DIR_CR_APP/cloud_redirect.so" | grep -q 'ELF 32-bit' \
-            || die "cloud_redirect.so nao e 32-bit; o runtime da Steam nao vai carregar"
-    fi
-    ok "cloud_redirect.so e cloud_redirect_cli (32 bits) ao lado da GUI"
-
-    mkdir -p "$DIR_CR"
-    for arq in cloud_redirect.so cloud_redirect_cli; do
-        install -m 755 "$DIR_CR_APP/$arq" "$DIR_CR/$arq"
-    done
-    ok "CloudRedirect implantado em $DIR_CR"
-
-    mkdir -p "$DIR_ICONS"
-    for tam in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
-        mkdir -p "$DIR_DADOS/icons/hicolor/$tam/apps"
-        install -m 644 "$FONTE/ui-linux/src/cloudredirect.png" \
-            "$DIR_DADOS/icons/hicolor/$tam/apps/cloudredirect.png"
-    done
-    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-        run_cmd gtk-update-icon-cache -f -t "$DIR_DADOS/icons/hicolor" || true
-    fi
-
-    mkdir -p "$DIR_APPS"
-    cat > "$DIR_APPS/cloudredirect.desktop" <<EOF
+        cat > "$ApplicationDirectory/cloudredirect.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
 Name=CloudRedirect
 GenericName=Gerenciador de saves na nuvem
 Comment=Redireciona o Steam Cloud para provedores externos
-Exec="$DIR_CR_APP/cloud-redirect-ui"
+Exec="$CloudRedirectAppDir/cloud-redirect-ui"
 Icon=cloudredirect
 Terminal=false
 Categories=Game;
-Keywords=steam;cloud;save;backup;sync;slssteam;
-StartupNotify=true
 EOF
-    if command -v desktop-file-validate >/dev/null 2>&1; then
-        desktop-file-validate "$DIR_APPS/cloudredirect.desktop" 2>&1 | grep -v '^$' | while read -r l; do
-            warn "cloudredirect.desktop: $l"
-        done || true
-    fi
-    ok "entrada de menu criada em $DIR_APPS/cloudredirect.desktop"
-}
+        chmod +x "$ApplicationDirectory/cloudredirect.desktop"
+        command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q "$ApplicationDirectory" || true
+        echo "Latest Cloud Redirect Library Downloaded"
+      else
+        echo "User Is Not Using Cloud Redirect Skipping.."
+      fi
+        echo "" &> /dev/null
+        }
 
-install_deps() {
-    info "instalando dependencias..."
-    if   command -v pacman  >/dev/null 2>&1; then
-        $SUDO pacman -S --noconfirm --needed \
-            cmake git p7zip qt6-base desktop-file-utils \
-            wget curl grep awk sed libnotify
-    elif command -v apt-get >/dev/null 2>&1; then
-        $SUDO apt-get update
-        $SUDO apt-get install -y \
-            cmake git p7zip-full qt6-base-dev build-essential desktop-file-utils \
-            wget curl grep awk sed libnotify-bin
-        local pkg_libcurl alvo
-        if apt-cache search --names-only '^libcurl4t64$' 2>/dev/null | grep -q libcurl4t64; then
-            pkg_libcurl="libcurl4t64"
-        else
-            pkg_libcurl="libcurl4"
-        fi
-        alvo="${pkg_libcurl}:i386"
-        if ! dpkg -s "$alvo" >/dev/null 2>&1; then
-            dpkg --print-foreign-architectures | grep -q i386 \
-                || { $SUDO dpkg --add-architecture i386 && $SUDO apt-get update; }
-            $SUDO apt-get install -y "$alvo" || warn "falha ao instalar $alvo"
-        fi
-    elif command -v dnf     >/dev/null 2>&1; then
-        $SUDO dnf install -y \
-            cmake git p7zip qt6-qtbase-devel gcc-c++ desktop-file-utils \
-            wget curl grep awk sed libnotify
-    elif command -v xbps-install >/dev/null 2>&1; then
-        $SUDO xbps-install -y \
-            cmake git p7zip qt6-base desktop-file-utils \
-            wget curl grep gawk sed libnotify
+    editconfig(){
+        whereSLSsteamconfig
+            if steamoscheck; then
+				echo "Steamos Detected Enabled Safemode"
+				sed -i "s/^SafeMode:.*/SafeMode: yes/" config.yaml
+				sed -i "s/^NotifyInit:.*/NotifyInit: yes/" config.yaml
+				echo "config patched" > .headcrabd
+			elif cachyoscheck; then
+				echo "Cachy OS Detected Adjusted Loglevel"
+				sed -i "s/^LogLevels:.*/LogLevels: 0x3f/" config.yaml
+				sed -i "s/^SafeMode:.*/SafeMode: no/" config.yaml
+				echo "config patched" > .headcrabd
+			else
+                sed -i "s/^SafeMode:.*/SafeMode: no/" config.yaml
+				echo "config patched" > .headcrabd
+            fi
+            }
+
+    createsteamcfg(){
+    wheresteamcfg
+    if [ -f "steam.cfg" ]; then
+        echo "steam.cfg Found Skipping Creation Process.."
     else
-        die "distro nao suportada (use Arch, Debian/Ubuntu, Fedora ou Void)"
-    fi
-    ok "dependencias instaladas"
-}
-
-main() {
-    need_cmd curl
-    need_cmd git
-    printf "${c_bold}Instalador do SLSsteam + CloudRedirect (pt-BR, modo h3adcr-b)${c_reset}\n"
-    printf "Destino: %s\n" "$HOME"
-
-    [ "$SKIP_DEPS" != "1" ] && install_deps
-
-    titulo "1/4  Cliente Steam"
-    remover_pacote_slssteam
-    desativar_wrapper_sls
-    travar_cliente_steam
-
-    titulo "2/4  SLSsteam"
-    instalar_slssteam
-
-    titulo "3/4  CloudRedirect BR"
-    instalar_cloudredirect
-
-    titulo "4/4  Plugins Lua do SLSsteam"
-    instalar_plugins_sls
-
-    local sh found=0
-    for sh in "$HOME/.local/share/Steam/steam.sh" "$HOME/.steam/steam/steam.sh"; do
-        if patch_steam "$sh"; then found=1; fi
-    done
-    [ "$found" = 1 ] || warn "steam.sh nao encontrado; a Steam nao sera hookada"
-
-    if command -v update-desktop-database >/dev/null 2>&1; then
-        run_cmd update-desktop-database -q "$DIR_APPS" || true
-    fi
-
-    titulo "Pronto"
-    cat <<EOF
-  Cliente Steam   travado em $CLIENT_VER (steam.cfg bloqueia updates)
-  SLSsteam        $DIR_SLS
-  Plugins Lua     $DIR_CFG_SLS/plugins (download, spliced-tickets)
-  CloudRedirect   $DIR_CR_APP/cloud-redirect-ui
-
-Reinicie a Steam para o LD_AUDIT valer, e abra o CloudRedirect pelo menu. O
-provedor de nuvem se configura na aba Provedor; Google Drive e OneDrive pedem
-autorizacao pelo navegador na primeira vez.
+        cat << 'EOF' > steam.cfg
+BootStrapperInhibitAll=enable
+BootStrapperForceSelfUpdate=disable
 EOF
-}
+    fi
+        echo "" &> /dev/null
+    }
 
-main "$@"
+    patchsteam(){
+        if [ -d "$FlatpakSteamInstallDir" ]; then
+                patchflatpaksteam
+        else
+                patchlocalsteam
+        fi
+        }
+
+    checkcrsteam(){
+      if crconfigcheck; then
+        echo "Fetching Headcrab-CR Client"
+        cd $SteamInstallDir/
+        rm steam.sh
+        wget -O steam.sh "$Headcrab_Native_CR" &> /dev/null
+        echo "Patched Client With Headcrab-CR"
+      else
+        echo "Fetching Headcrab Client"
+        cd $SteamInstallDir/
+        rm steam.sh
+        wget -O steam.sh "$Headcrab_Native" &> /dev/null
+        echo "Patched Client With Headcrab"
+      fi
+        echo "" &> /dev/null
+        }
+
+    checkcrflatpaksteam(){
+      if crconfigcheck; then
+        echo "Fetching Headcrab-CR Client"
+        cd $FlatpakSteamInstallDir/
+        rm steam.sh
+        wget -O steam.sh "$Headcrab_Flatpak_CR" &> /dev/null
+        echo "Patched Client With Headcrab-CR"
+      else
+        echo "Fetching Headcrab Client"
+        cd $FlatpakSteamInstallDir/
+        rm steam.sh
+        wget -O steam.sh "$Headcrab_Flatpak" &> /dev/null
+        echo "Patched Client With Headcrab"
+      fi
+        echo "" &> /dev/null
+        }
+
+    patchflatpaksteam(){
+        cd $FlatpakSteamInstallDir/
+        wget -O client.sh "$Headcrab_Client" &> /dev/null
+            chmod 777 steam.sh
+            checkcrflatpaksteam
+            chmod 555 steam.sh
+			chmod +x client.sh
+            echo "SLSSteamInstallType: Flatpak"
+        }
+
+    patchlocalsteam(){
+        cd $SteamInstallDir/
+        wget -O client.sh "$Headcrab_Client" &> /dev/null
+        chmod 777 steam.sh
+			checkcrsteam
+			chmod 555 steam.sh
+			chmod +x client.sh
+        	echo "SLSsteamInstallType: Native"
+        }
+
+    checkcrstatus(){
+        if crconfigcheck; then
+            echo "CloudRedirectStatus: Enabled"
+        else
+            echo "CloudRedirectStatus: Disabled"
+        fi
+            echo "" &> /dev/null
+            }
+
+    # ── Extras do repositorio BR (nao existem no h3adcr-b) ────────────────
+    sed_i_chave(){
+        local cfg="$1" chave="$2" valor="$3"
+        if grep -qE "^[[:space:]]*$chave:" "$cfg"; then
+            sed -i -E "s/^([[:space:]]*$chave:).*/\1 $valor/" "$cfg"
+        else
+            printf '\n%s: %s\n' "$chave" "$valor" >> "$cfg"
+        fi
+        }
+
+    garantir_config_slssteam(){
+        local cfg="$SLSsteamConfigDir/config.yaml" chave
+        mkdir -p "$SLSsteamConfigDir"
+        [ -f "$cfg" ] || die "config.yaml do SLSsteam ausente em $SLSsteamConfigDir"
+        backup_cfg "$cfg"
+        sed_i_chave "$cfg" "DisableCloud" "no"
+        sed_i_chave "$cfg" "NotifyInit" "yes"
+        sed_i_chave "$cfg" "SafeMode" "no"
+        sed_i_chave "$cfg" "Plugins" "yes"
+        for chave in AdditionalDepots DecryptionKeys; do
+            grep -qE "^[[:space:]]*$chave:" "$cfg" || printf '\n%s:\n' "$chave" >> "$cfg"
+        done
+        ok "config do SLSsteam garantido (DisableCloud/NotifyInit/Plugins/AdditionalDepots)"
+        }
+
+    registrar_versao_slssteam(){
+        [ -d "$SLSsteamInstallDir" ] || return 0
+        if [ -n "${SLS_TAG:-}" ]; then
+            mkdir -p "$SLSsteamInstallDir"
+            printf '%s\n' "$SLS_TAG" > "$SLSsteamInstallDir/version"
+            ok "versao $SLS_TAG registrada em $SLSsteamInstallDir/version (para o ASSella)"
+        fi
+        }
+
+    instalar_plugins_sls(){
+        local src="$SCRIPT_DIR/../sls-plugins" destino="$SLSsteamConfigDir/plugins"
+        [ -d "$src" ] || { warn "sls-plugins ausente em $src; pulando"; return 0; }
+        mkdir -p "$destino"
+        local arq
+        for arq in download.lua spliced-tickets.lua; do
+            [ -f "$src/$arq" ] || die "$arq ausente em $src"
+            install -m 700 "$src/$arq" "$destino/$arq"
+        done
+        ok "plugins Lua em $destino (Plugins: yes)"
+        }
+
+        conditioncheck(){
+            crinstall
+            echo "Checking Conditions.."
+            echo "=================================================="
+            editconfig
+            patchsteam
+            echo "BlockedClientUpdates: Enabled"
+            checkcrstatus
+            echo "=================================================="
+            }
+
+    main(){
+        preinstallchecks
+		SetupHeadcrab_Updater
+        checkforsteamcfg
+        registrar_versao_slssteam
+        garantir_config_slssteam
+        instalar_plugins_sls
+        }
+
+    main
