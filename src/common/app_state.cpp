@@ -135,6 +135,10 @@ static void InvalidateServeCache(uint32_t accountId, uint32_t appId) {
 
 // Update serve cache. Reject lower-CN out-of-order completions while entry is fresh.
 static constexpr int64_t kConcurrentFetchWindowMs = 10000;
+// How long a serve-path live fetch may hold the calling (Steam-owned) thread.
+// Comfortably covers a warm provider round-trip; anything slower is served from
+// local state and picked up by the background warm instead.
+static constexpr int kServeFetchDeadlineMs = 250;
 static void RefreshServeCache(uint32_t accountId, uint32_t appId,
                               const StateFetchResult& result) {
     if (result.status != StateFetchStatus::Ok) return; // only cache good reads
@@ -574,16 +578,15 @@ StateFetchResult FetchCloudStateForServe(uint32_t accountId, uint32_t appId) {
             }
         }
     }
-    // Miss / stale / contention -> live fetch on bg thread (unbounded; BeginBatch needs fresh CN).
-    auto fetchFut = std::async(std::launch::async, [accountId, appId]() {
-        CR_SetCrashContext("BgFetchServeLive", "", appId);
-        return FetchCloudState(accountId, appId);
-    });
-    CoopYield::PumpUntil([&fetchFut]() {
-        return fetchFut.wait_for(std::chrono::milliseconds(0)) ==
-               std::future_status::ready;
-    });
-    return fetchFut.get();
+    // Miss / stale / contention -> bounded live fetch. This runs on a Steam-owned
+    // thread (BeginAppUploadBatch) and CoopYield has no hook on Linux, so
+    // PumpUntil degenerates into sleep(2ms) polling. An unbounded wait here held
+    // the thread for the whole provider round-trip (measured 1.7-4.5s), which
+    // trips the client watchdog -> stalled cross-thread pipe -> SIGABRT.
+    // FetchCloudStateBounded detaches its worker, warms the serve cache on late
+    // completion, and caps concurrent fetches, so we reuse it instead of an
+    // unbounded std::async whose future destructor would block anyway.
+    return FetchCloudStateBounded(accountId, appId, kServeFetchDeadlineMs);
 }
 
 bool PublishCloudState(uint32_t accountId, uint32_t appId,
