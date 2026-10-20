@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build_host -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build_host -j"$(nproc)"
+      - name: Test
+        run: ctest --test-dir build_host --output-on-failure
+      - name: Shell syntax
+        run: |
+          for f in scripts/*.sh test/*.sh; do
+            bash -n "$f"
+          done
+
+  linux32:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build glibc 2.35 builder
+        run: docker build -f Dockerfile.builder -t cloudredirect-builder .
+      - name: Build and test 32-bit hook
+        run: |
+          docker run --rm -v "$PWD:/build" -w /build cloudredirect-builder bash -c "
+            set -e
+            cmake -S . -B build-ci -DLINUX_32BIT=ON -DCMAKE_BUILD_TYPE=Release \
+                  -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12 \
+                  -DCR_GIT_SHA=${GITHUB_SHA::7}
+            cmake --build build-ci -j\"\$(nproc)\"
+            ctest --test-dir build-ci --output-on-failure
+          "
+      - name: Upload hook artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud_redirect-linux32
+          path: |
+            build-ci/cloud_redirect.so
+            build-ci/cloud_redirect_cli
+          if-no-files-found: error
