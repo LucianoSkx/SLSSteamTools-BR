@@ -24,29 +24,34 @@ Extraia e rode:
 ./install.sh
 ```
 
-### 2. SLSsteam + CloudRedirect + plugins Lua (obrigatórios)
+### 2. Steam + SLSsteam + CloudRedirect (1 comando)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install.sh | bash
 ```
 
-O passo 2 é um port fiel do instalador
-[h3adcr-b](https://github.com/Deadboy666/h3adcr-b) — mesma ordem de etapas, mesmo
-pin do cliente Steam (`1791918634`, via dgsc), mesmos manifestos e o mesmo
-launcher `steam.sh` com `LD_AUDIT` (SLSsteam) + `LD_PRELOAD` (CloudRedirect).
+O script tem duas partes:
 
-A única diferença é o CloudRedirect: em vez do `.so` da release h3adcr-b e do
-app flatpak de OAuth, usa o `cloud_redirect.so` deste repositório (com
-`CrashGuard` e `StopWorkers` limitados) e a UI Qt6 nativa dele para o login.
+1. Roda o instalador do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b)
+   (`headcrab.pages.dev`). É ele que instala e mantém **Steam e SLSsteam**: pin
+   do cliente, `dgsc`, manifestos e o `steam.sh` com `LD_AUDIT` (SLSsteam) +
+   `LD_PRELOAD` (CloudRedirect).
+2. Instala o **CloudRedirect deste repositório**: `cloud_redirect.so` (com
+   `CrashGuard` e `StopWorkers` limitados), a CLI e a UI Qt6 nativa no lugar do
+   app flatpak de OAuth do upstream, mais ícones e entrada de menu.
 
-Também instala o SLSsteam mais recente direto do upstream, grava
-`~/.local/share/SLSsteam/version` (usado pelo ASSella), garante
-`DisableCloud: no` / `NotifyInit: yes` / `Plugins: yes` no `config.yaml` e instala
-os plugins Lua — `download.lua` e `spliced-tickets.lua` são **obrigatórios**,
-sem eles depots extras e jogos com DRM não funcionam.
+Ou seja: este projeto só instala o CloudRedirect. Steam e SLSsteam são do
+h3adcr-b — se ele mudar, acompanham sozinhos, nada é duplicado aqui.
 
-Cria também a entrada **Headcrab Updater** no menu, que roda este mesmo
-instalador (não o do h3adcr-b), pra reatualizar o cliente depois.
+Requisitos da parte 2: `curl`, `git`, `cmake` e Qt6 em desenvolvimento (Core,
+Quick, QuickControls2, DBus, Network). Só Steam nativa; flatpak não é suportada.
+
+O hook só é carregado quando o SLSsteam está com `DisableCloud: no` no
+`~/.config/SLSsteam/config.yaml` (padrão do h3adcr-b).
+
+Os plugins Lua são passo separado (abaixo) — `download.lua` e
+`spliced-tickets.lua` são **obrigatórios** pro SLSsteam, sem eles depots extras
+e jogos com DRM não funcionam.
 
 Reinicie a Steam depois (os hooks só valem para processos novos).
 
@@ -55,19 +60,19 @@ Reinicie a Steam depois (os hooks só valem para processos novos).
 Instalar:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/install-plugins.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-plugins.sh | bash
 ```
 
 Remover:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/uninstall-plugins.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/uninstall-plugins.sh | bash
 ```
 
 Ligar/desligar:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/toggle-plugins.sh | bash -s -- off
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/toggle-plugins.sh | bash -s -- off
 ```
 
 ## Diagnóstico
@@ -77,26 +82,29 @@ o pacote pra um paste público (link impresso no terminal). Me manda o link
 junto com a issue:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/diagnose.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/diagnose.sh | bash
 ```
 
 Para gerar o tarball local sem subir nada:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/diagnose.sh -o diagnose.sh && DIAG_OUT=~/diag.tar.gz bash diagnose.sh
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/diagnose.sh -o diagnose.sh && DIAG_OUT=~/diag.tar.gz bash diagnose.sh
 ```
 
 ## Remover
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/uninstall.sh | bash -s -- --yes
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/uninstall.sh | bash -s -- --yes
 ```
 
-Restaura o `steam.sh` do backup e apaga binários, GUI e entradas de menu.
+Apaga hook, CLI, UI, ícones e entrada de menu do CloudRedirect. Steam, SLSsteam
+e o `steam.sh` não são tocados (são do h3adcr-b).
 Dados preservados: `~/.config/CloudRedirect/`, `~/.config/SLSsteam/config.yaml`,
 `~/.local/share/psyche/`.
 
 ## O que fica onde
+
+Linhas de SLSsteam são instaladas pelo h3adcr-b; as de CloudRedirect, por este repo.
 
 | Caminho | Programa | O quê |
 |---|---|---|
@@ -141,7 +149,7 @@ Dados em `~/.local/share/ACCELA/`.
 - [niwia](https://github.com/niwia) — ASSella (extra)
 - [Selectively11](https://github.com/Selectively11) — CloudRedirect original
 - [AceSLS](https://github.com/AceSLS/SLSsteam) — SLSsteam
-- [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — h3adcr-b (base do instalador, port fiel)
+- [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — h3adcr-b (instala e mantém Steam e SLSsteam; dependência do instalador)
 
 ## Licença
 

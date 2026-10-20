@@ -6,7 +6,7 @@
 #  pessoais, empacota num .tar.gz e sobe pra um paste publico (uguu, fallback
 #  catbox), imprimindo APENAS o link.
 #
-#    curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/master/scripts/diagnose.sh | bash
+#    curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/diagnose.sh | bash
 #
 #  Para gerar o tarball local sem subir nada:
 #
