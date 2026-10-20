@@ -1,0 +1,8 @@
+{
+  global:
+    CR_GetVersion;
+    slsteam_local_stats_epoch_v1;
+    CloudRedirect_CliMain;
+  local:
+    *;
+};
