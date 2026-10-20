@@ -12,15 +12,21 @@
 #
 #    DIAG_OUT=~/diag.tar.gz bash scripts/diagnose.sh
 #
+#  Para incluir minidumps (memoria do processo; risco de segredo):
+#
+#    DIAG_INCLUDE_DUMPS=1 DIAG_OUT=~/diag.tar.gz bash scripts/diagnose.sh
+#
 #  Privacidade: todo log e filtrado por scrub() antes de sair da maquina
-#  (home, usuario, SteamID64, email, IPv4, email FakeEmail). Minidumps em
-#  /tmp/dumps vao como estao (binario) — podem conter memoria do processo.
+#  (home, usuario, SteamID64, email, IPv4, email FakeEmail, query strings de
+#  URLs e cabecalhos Authorization). Minidumps sao memoria do processo e
+#  ficam de fora por padrao; use DIAG_INCLUDE_DUMPS=1 para inclui-los.
 #  Segredos NUNCA sao coletados: tokens OAuth em ~/.config/CloudRedirect,
 #  ~/.steam/steam/registry.vdf etc. so entram se forem texto de log puro,
 #  e mesmo assim passam pelo scrub.
 # ============================================================================
 
 set -uo pipefail
+umask 077
 
 _re_escape() { printf '%s' "$1" | sed -e 's/[^a-zA-Z0-9]/\\&/g'; }
 
@@ -38,6 +44,10 @@ scrub() {
 	args+=(-e 's/\b7656[0-9]{13}\b/STEAMID/g')
 	args+=(-e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/EMAIL/g')
 	args+=(-e 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}\b/IP/g')
+	args+=(-e 's#(https?://[^[:space:]"#?]+)\?[^[:space:]"#]*#\1?REDACTED#g')
+	args+=(-e 's#([?&](access_token|refresh_token|id_token|code|tempauth|token|signature|X-Amz-Signature|X-Amz-Credential|X-Amz-Security-Token)=)[^&[:space:]"#]+#\1REDACTED#gI')
+	args+=(-e 's#(Authorization:[[:space:]]*(Bearer|Basic)[[:space:]]+)[^[:space:]]+#\1REDACTED#gI')
+	args+=(-e 's#((client_secret|access_token|refresh_token|id_token|password|token)"?[[:space:]]*[:=][[:space:]]*"?)[^"[:space:],}]+#\1REDACTED#gI')
 	args+=(-e 's/-[a-z]{2,5}[0-9]+\.steamserver\.net/-REGION.steamserver.net/g')
 	args+=(-e 's/((force_)?account_?name|persona_?name)([[:space:]]*[:=][[:space:]]*)[^[:space:]]+/\1\3NAME/gI')
 	if [ -n "$u" ]; then
@@ -56,10 +66,12 @@ validate_paste_url() {
 
 DIAG_CEF_CAP="${DIAG_CEF_CAP:-262144}"
 DIAG_LOG_CAP="${DIAG_LOG_CAP:-524288}"
+DIAG_INCLUDE_DUMPS="${DIAG_INCLUDE_DUMPS:-0}"
 DIAG_DUMP_MAX="${DIAG_DUMP_MAX:-4}"
 DIAG_DUMP_MAX_BYTES="${DIAG_DUMP_MAX_BYTES:-12582912}"
 DIAG_DUMP_DIRS="${DIAG_DUMP_DIRS:-/tmp/dumps:/var/tmp/dumps}"
 DIAG_CRASH_LINES="${DIAG_CRASH_LINES:-60}"
+DIAG_SKIP_DESKTOPS="${DIAG_SKIP_DESKTOPS:-0}"
 
 steam_root() {
 	local link="$HOME/.steam/steam" r c
@@ -98,6 +110,7 @@ _collect_steam_logs() { # $1 stage-dir $2 steam-root
 }
 
 _collect_desktops() { # $1 stage-dir
+	[ "$DIAG_SKIP_DESKTOPS" = "1" ] && return 0
 	local stage="$1" dest="$stage/steam-desktops.txt"
 	local raw; raw="$(mktemp "${TMPDIR:-/tmp}/slstools-diag-desk.XXXXXX")" || return 0
 	local found=0 f
@@ -147,8 +160,10 @@ _collect_coredumps() { # $1 stage-dir
 			| grep -iE 'steam|cef|webhelper' | tail -20 \
 			| scrub > "$stage/steam-coredumps.txt" || true
 	fi
-	# Minidumps do breakpad (binarios, sem scrub — offsets internos).
+	# Minidumps do breakpad (binarios, sem scrub — offsets internos). Sao
+	# memoria do processo, entao so entram com opt-in explicito.
 	local d count=0
+	[ "$DIAG_INCLUDE_DUMPS" = "1" ] || return 0
 	IFS=':' read -r -a dirs <<< "$DIAG_DUMP_DIRS"
 	for d in "${dirs[@]}"; do
 		[ -d "$d" ] || continue
@@ -245,7 +260,12 @@ main() {
 	_collect_coredumps "$stage"
 	_collect_install_state "$stage"
 
-	tar -czf "$tmp" -C "$stage" . 2>/dev/null
+	tar -czf "$tmp" -C "$stage" . 2>/dev/null || {
+		rm -rf "$stage"
+		printf 'falha ao criar o tarball\n' >&2
+		return 1
+	}
+	chmod 600 "$tmp"
 	rm -rf "$stage"
 
 	if [ -n "${DIAG_OUT:-}" ]; then

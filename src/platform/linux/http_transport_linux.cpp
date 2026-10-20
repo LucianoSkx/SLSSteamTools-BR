@@ -1,6 +1,7 @@
 
 #include "cloud_provider_base.h"
 #include "log.h"
+#include "url_util.h"
 
 #include <cctype>
 #include <cerrno>
@@ -198,7 +199,7 @@ static HttpUtil::HttpResp CurlRequest(const char* logTag, const char* method,
 
     bool allowHttp = opts && opts->allowInsecureHttp;
     if (url.substr(0, 8) != "https://" && !(allowHttp && url.substr(0, 7) == "http://")) {
-        LOG("%s BLOCKED non-HTTPS: %s", logTag, url.c_str());
+        LOG("%s BLOCKED non-HTTPS: %s", logTag, UrlUtil::Redact(url).c_str());
         return resp;
     }
 
@@ -282,7 +283,8 @@ static HttpUtil::HttpResp CurlRequest(const char* logTag, const char* method,
     }
 
     if (res != 0) {
-        LOG("%s curl failed: %d (%s %s)", logTag, res, method, url.c_str());
+        LOG("%s curl failed: %d (%s %s)", logTag, res, method,
+            UrlUtil::Redact(url).c_str());
         return resp;
     }
 

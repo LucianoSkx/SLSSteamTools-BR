@@ -2,6 +2,7 @@
 #include "http_util.h"
 #include "json.h"
 #include "log.h"
+#include "url_util.h"
 
 #include <thread>
 #include <chrono>
@@ -109,7 +110,7 @@ bool OneDriveProvider::ListChildrenById(const std::string& itemId, const std::st
         "/children?$select=id,name,size,fileSystemInfo,folder";
 
     while (!url.empty()) {
-        LOG("[OneDrive] ListChildrenById: GET %s", url.c_str());
+        LOG("[OneDrive] ListChildrenById: GET %s", UrlUtil::Redact(url).c_str());
         auto r = ApiGet(url);
         if (r.status != 200) {
             LOG("[OneDrive] ListChildren failed: HTTP %d", r.status);
@@ -373,7 +374,8 @@ bool OneDriveProvider::SessionUpload(uint32_t accountId, uint32_t appId,
     }
 
     if (uploadUrl.find("https://") != 0) {
-        LOG("[OneDrive] SessionUpload: non-HTTPS upload URL rejected: %s", uploadUrl.c_str());
+        LOG("[OneDrive] SessionUpload: non-HTTPS upload URL rejected: %s",
+            UrlUtil::Redact(uploadUrl).c_str());
         return false;
     }
 

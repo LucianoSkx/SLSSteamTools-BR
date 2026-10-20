@@ -5,8 +5,10 @@
 #include <cstdlib>
 #include <ctime>
 #include <cstring>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static FILE* g_logFile = nullptr;
 // pthread_mutex_t with PTHREAD_MUTEX_INITIALIZER is safe before C++ static
@@ -14,6 +16,21 @@ static FILE* g_logFile = nullptr;
 static pthread_mutex_t g_logMutex = PTHREAD_MUTEX_INITIALIZER;
 static char g_logPathBuf[512] = {};
 static constexpr long MAX_LOG_SIZE = 10 * 1024 * 1024;
+
+// Logs contain URLs with pre-authenticated query strings; never leave them
+// group/world-readable. fchmod also repairs files created by older builds.
+static FILE* OpenLogFile()
+{
+    int fd = open(g_logPathBuf, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    if (fd < 0) return nullptr;
+    FILE* f = fdopen(fd, "a");
+    if (!f) {
+        close(fd);
+        return nullptr;
+    }
+    fchmod(fileno(f), 0600);
+    return f;
+}
 
 void Log::Init()
 {
@@ -37,7 +54,7 @@ void Log::Init()
 
     snprintf(g_logPathBuf, sizeof(g_logPathBuf), "%s/cloud_redirect.log", base);
 
-    g_logFile = fopen(g_logPathBuf, "a");
+    g_logFile = OpenLogFile();
     if (g_logFile) {
         fprintf(g_logFile, "\n--------------------------------------------------------------------------------\n");
         fflush(g_logFile);
@@ -67,7 +84,7 @@ static void TruncateIfNeeded() {
     if (pos < 0 || pos < MAX_LOG_SIZE) return;
     fclose(g_logFile);
     if (g_logPathBuf[0]) remove(g_logPathBuf);
-    g_logFile = fopen(g_logPathBuf, "a");
+    g_logFile = OpenLogFile();
     if (g_logFile) {
         fprintf(g_logFile, "=== Log truncated (size limit reached) ===\n");
         fflush(g_logFile);
