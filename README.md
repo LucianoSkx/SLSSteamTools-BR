@@ -91,6 +91,14 @@ Para gerar o tarball local sem subir nada:
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/diagnose.sh -o diagnose.sh && DIAG_OUT=~/diag.tar.gz bash diagnose.sh
 ```
 
+O scrub remove home, usuário, SteamID, e-mail, IPv4, query strings de URL e
+cabeçalhos `Authorization`. Minidumps de `/tmp/dumps` são memória do processo e
+ficam de fora por padrão; para incluí-los:
+
+```sh
+DIAG_INCLUDE_DUMPS=1 DIAG_OUT=~/diag.tar.gz bash diagnose.sh
+```
+
 ## Remover
 
 ```sh
