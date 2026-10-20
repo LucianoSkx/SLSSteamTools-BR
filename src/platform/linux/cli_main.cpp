@@ -1,5 +1,5 @@
 // Linux CLI wrapper: dlopens cloud_redirect.so and calls CloudRedirect_CliMain.
-// Mirrors src/platform/win/cli_main.cpp. Must be 32-bit to load the 32-bit .so.
+// Must be 32-bit to load the 32-bit .so.
 
 #include <dlfcn.h>
 #include <limits.h>
