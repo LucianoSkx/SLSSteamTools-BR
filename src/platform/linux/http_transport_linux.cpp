@@ -30,6 +30,7 @@ typedef int CURLoption;
 #define CURLOPT_NOBODY         44
 #define CURLOPT_TIMEOUT        13
 #define CURLOPT_CONNECTTIMEOUT 78
+#define CURLOPT_NOSIGNAL       99
 #define CURLOPT_USERAGENT      10018
 #define CURLOPT_FOLLOWLOCATION 52
 #define CURLOPT_MAXREDIRS      68
@@ -215,6 +216,10 @@ static HttpUtil::HttpResp CurlRequest(const char* logTag, const char* method,
         curl = g_curl.easy_init();
     }
     if (!curl) return resp;
+
+    // libcurl's alarm()-based DNS timeout longjmps from whichever thread gets
+    // SIGALRM; in Steam that can be the UI thread, aborting the process.
+    g_curl.easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
     std::string responseBody;
     std::string responseHeaders;
