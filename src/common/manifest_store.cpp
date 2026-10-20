@@ -1,6 +1,7 @@
 #include "manifest_store.h"
 #include "cloud_storage.h"
 #include "cloud_metadata_paths.h"
+#include "coop_yield.h"
 #include "file_util.h"
 #include "json.h"
 #include "log.h"
@@ -567,7 +568,8 @@ bool UpdateManifestEntry(uint32_t accountId, uint32_t appId,
     }
 
     auto mtx = AcquireAppSyncMutex(accountId, appId);
-    std::lock_guard<std::mutex> lock(*mtx);
+    // Called on Steam's commit path; a hard lock here can outlive the 15s watchdog.
+    auto lock = CoopYield::LockCooperatively(*mtx);
 
     Manifest manifest;
     TryLoadLocalManifest(accountId, appId, manifest);
@@ -584,7 +586,7 @@ bool UpdateManifestEntry(uint32_t accountId, uint32_t appId,
 bool RemoveManifestEntry(uint32_t accountId, uint32_t appId,
                          const std::string& filename) {
     auto mtx = AcquireAppSyncMutex(accountId, appId);
-    std::lock_guard<std::mutex> lock(*mtx);
+    auto lock = CoopYield::LockCooperatively(*mtx);
 
     Manifest manifest;
     if (!TryLoadLocalManifest(accountId, appId, manifest)) return true;

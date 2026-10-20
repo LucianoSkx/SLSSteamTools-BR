@@ -14,7 +14,7 @@ namespace StatsStore {
 using CloudPullAllFn =
     std::function<bool(std::unordered_map<uint32_t, std::string>& out)>;
 using CloudPushAllFn =
-    std::function<void(const std::unordered_map<uint32_t, std::string>& all)>;
+    std::function<bool(const std::unordered_map<uint32_t, std::string>& all)>;
 // Read one legacy per-app blob for migration into the account blob.
 using CloudPullLegacyFn = std::function<std::string(uint32_t appId)>;
 // Read one legacy Playtime/<appId>.bin for migration recovery.

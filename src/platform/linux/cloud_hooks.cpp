@@ -429,15 +429,15 @@ static void EnsureInitialized() {
             },
             // pushAll: RMW-merge our snapshot onto the live blob (don't clobber
             // another device) and upload once; skip if nothing changed.
-            [](const std::unordered_map<uint32_t, std::string>& all) {
+            [](const std::unordered_map<uint32_t, std::string>& all) -> bool {
                 // Detached worker: register with the in-flight drain so
                 // CloudStorage::Shutdown waits for the provider read below before
                 // tearing g_provider down (UAF guard).
                 CloudStorage::InflightSyncScope guard;
-                if (!guard.entered) return;
+                if (!guard.entered) return false;
 
                 uint32_t accountId = CloudIntercept::GetAccountId();
-                if (accountId == 0) return;
+                if (accountId == 0) return false;
 
                 Json::Value root = Json::Object();
                 std::vector<uint8_t> cur;
@@ -469,10 +469,10 @@ static void EnsureInitialized() {
                         changed = true;
                     }
                 }
-                if (!changed) return;
+                if (!changed) return true;
 
                 std::string merged = Json::Stringify(root);
-                CloudStorage::UploadCloudMetadataTextAsync(
+                return CloudStorage::UploadCloudMetadataText(
                     accountId, CloudIntercept::kAccountScopeAppId, "stats.json", merged);
             },
             // pullLegacy: read one app's old per-app blob for migration into the account blob.

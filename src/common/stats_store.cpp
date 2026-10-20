@@ -55,6 +55,16 @@ static std::unordered_map<uint32_t, std::string> g_cloudBlobByApp;
 static std::unordered_set<uint32_t> g_cloudBlobMerged;
 // True when the account blob needs re-upload. g_mutex.
 static bool g_accountBlobDirty = false;
+// Incremented on every mutation; the push worker only clears dirty when its
+// snapshot is still current. g_mutex.
+static uint64_t g_accountBlobGeneration = 0;
+static bool g_accountBlobPushInFlight = false; // g_mutex
+
+// Caller holds g_mutex.
+static void MarkAccountBlobDirtyLocked() {
+    g_accountBlobDirty = true;
+    ++g_accountBlobGeneration;
+}
 
 // Apps whose native import was attempted. g_mutex.
 static std::unordered_map<uint32_t, bool> g_importAttempted;
@@ -688,11 +698,15 @@ bool ResetForAccountSwitch(uint32_t newAccountId) {
         g_accountBlobDirty = false;
         // Release g_mutex for the blocking push, then re-acquire.
         lock.unlock();
+        bool pushed = false;
         {
             std::lock_guard<std::mutex> pushLock(g_pushInFlightMutex);
-            push(snapshot);
+            pushed = push(snapshot);
         }
         lock.lock();
+        if (!pushed)
+            LOG("[Stats] Account switch: outgoing account %u blob push FAILED",
+                oldAccountId);
     }
 
     g_cache.clear();
@@ -726,6 +740,8 @@ void ResetForTesting() {
     g_resetApps.clear();
     g_diskLoadPending.clear();
     g_accountBlobDirty = false;
+    g_accountBlobPushInFlight = false;
+    g_accountBlobGeneration = 0;
     g_lastSeenAccountId = 0;
     g_diskAccountId = 0;
 }
@@ -1604,52 +1620,92 @@ static void WriteAppStats(uint32_t appId, const AppStats& stats, bool pushCloud,
 
     std::string json = BuildAppStatsJson(merged);
 
-    std::ofstream f(path, std::ios::trunc);
-    f << json;
-    f.close();
+    if (!FileUtil::AtomicWriteText(path, json))
+        LOG("[Stats] WriteAppStats app %u: failed to write %s", appId, path.c_str());
 
     if (!merged.schema.empty()) {
         std::string schemaPath = SchemaPath(appId);
-        std::ofstream sf(schemaPath, std::ios::binary | std::ios::trunc);
-        sf.write(reinterpret_cast<const char*>(merged.schema.data()), merged.schema.size());
+        if (!FileUtil::AtomicWriteBinary(schemaPath, merged.schema.data(),
+                                         merged.schema.size()))
+            LOG("[Stats] WriteAppStats app %u: failed to write schema %s",
+                appId, schemaPath.c_str());
     }
 
     if (pushCloud) {
         // Flag account blob for coalesced push.
         g_cloudBlobByApp[appId] = json;
-        g_accountBlobDirty = true;
+        MarkAccountBlobDirtyLocked();
     }
 }
 
 // Push account blob if dirty. Serialized, detached worker (curl blocks).
+// Dirty is cleared only after the provider confirms the upload, and only when
+// no newer mutation landed while the snapshot was in flight.
 static void PushAccountBlobIfDirty() {
     CloudPushAllFn push;
     std::unordered_map<uint32_t, std::string> snapshot;
     uint32_t snapshotAccountId;
+    uint64_t snapshotGeneration;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         if (!g_accountBlobDirty || !g_cloudPushAll) return;
+        if (g_accountBlobPushInFlight) return;
         if (!g_accountIdProvider) return;
         snapshotAccountId = g_accountIdProvider();
         if (snapshotAccountId == 0) return;
         push = g_cloudPushAll;
         snapshot = g_cloudBlobByApp;     // copy under lock
-        g_accountBlobDirty = false;       // clear before releasing (re-set on later change)
+        snapshotGeneration = g_accountBlobGeneration;
+        g_accountBlobPushInFlight = true;
     }
-    std::thread([push = std::move(push), snapshot = std::move(snapshot), snapshotAccountId]() {
-        CR_SetCrashContext("BgStatsPush", "", snapshotAccountId);
-        std::lock_guard<std::mutex> pushLock(g_pushInFlightMutex);
-        {
-    std::unique_lock<std::mutex> lock(g_mutex);
-            uint32_t currentAcct = g_accountIdProvider ? g_accountIdProvider() : 0;
-            if (currentAcct != snapshotAccountId) {
-                LOG("[Stats] PushAccountBlob ABORTED: account switched %u -> %u between snapshot and push",
-                    snapshotAccountId, currentAcct);
-                return;
+    try {
+        std::thread([push = std::move(push), snapshot = std::move(snapshot),
+                     snapshotAccountId, snapshotGeneration]() {
+            CR_SetCrashContext("BgStatsPush", "", snapshotAccountId);
+            bool pushed = false;
+            {
+                std::lock_guard<std::mutex> pushLock(g_pushInFlightMutex);
+                {
+                    std::lock_guard<std::mutex> lock(g_mutex);
+                    uint32_t currentAcct = g_accountIdProvider ? g_accountIdProvider() : 0;
+                    if (currentAcct != snapshotAccountId) {
+                        LOG("[Stats] PushAccountBlob ABORTED: account switched %u -> %u between snapshot and push",
+                            snapshotAccountId, currentAcct);
+                        g_accountBlobPushInFlight = false;
+                        return;
+                    }
+                }
+                try {
+                    pushed = push(snapshot);
+                } catch (...) {
+                    LOG("[Stats] PushAccountBlob: provider threw for account %u",
+                        snapshotAccountId);
+                    pushed = false;
+                }
             }
-        }
-        push(snapshot);
-    }).detach();
+
+            bool retry = false;
+            {
+                std::lock_guard<std::mutex> lock(g_mutex);
+                if (pushed) {
+                    if (snapshotGeneration == g_accountBlobGeneration)
+                        g_accountBlobDirty = false;
+                    else
+                        retry = true;   // a newer mutation landed while uploading
+                }
+                g_accountBlobPushInFlight = false;
+            }
+            if (!pushed) {
+                LOG("[Stats] PushAccountBlob: upload failed for account %u; keeping dirty for retry",
+                    snapshotAccountId);
+            }
+            if (retry) PushAccountBlobIfDirty();
+        }).detach();
+    } catch (...) {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_accountBlobPushInFlight = false;
+        LOG("[Stats] PushAccountBlob: failed to spawn push worker");
+    }
 }
 
 void SaveAppStats(uint32_t appId, const AppStats& stats) {
@@ -1837,7 +1893,7 @@ static void MigrateLegacyBlobs(const std::vector<uint32_t>& appIds) {
         // Re-check: another path may have populated it while we were off-lock.
         if (g_cloudBlobByApp.find(appId) != g_cloudBlobByApp.end()) continue;
         g_cloudBlobByApp[appId] = legacy;
-        g_accountBlobDirty = true;
+        MarkAccountBlobDirtyLocked();
         LOG("[Stats] Migrated legacy per-app blob for app %u (forever=%u)",
             appId, parsed.playtime.minutesForever);
     }

@@ -12,39 +12,41 @@
 // The waits therefore sleep on this signal instead of usleep(): same interval,
 // same iteration count, but they return at once when a stop is requested.
 
+#include <atomic>
 #include <chrono>
-#include <condition_variable>
-#include <mutex>
+#include <thread>
 
 namespace LinuxInitStop {
 
 class StopSignal {
 public:
-    // Request a stop and wake every waiter. Idempotent.
+    // Request a stop. Idempotent.
     void Request() {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_requested = true;
-        }
-        m_cv.notify_all();
+        m_requested.store(true, std::memory_order_release);
     }
 
     bool Requested() const {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_requested;
+        return m_requested.load(std::memory_order_acquire);
     }
 
     // Sleep up to `interval`. Returns true if a stop was (or has been)
     // requested, false if the full interval elapsed without one.
+    //
+    // Polling instead of condition_variable::wait_for is deliberate: this
+    // object is used from the ELF destructor, when libstdc++/glibc teardown
+    // can no longer be assumed safe (the 32-bit join test crashed inside
+    // pthread_cond_broadcast there). The stop latency is bounded by 10 ms.
     bool WaitFor(std::chrono::milliseconds interval) {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        return m_cv.wait_for(lock, interval, [this] { return m_requested; });
+        const auto deadline = std::chrono::steady_clock::now() + interval;
+        while (std::chrono::steady_clock::now() < deadline) {
+            if (Requested()) return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        return Requested();
     }
 
 private:
-    mutable std::mutex m_mutex;
-    std::condition_variable m_cv;
-    bool m_requested = false;
+    std::atomic<bool> m_requested{false};
 };
 
 // Process-wide signal. Intentionally never destroyed: OnUnload() is an ELF

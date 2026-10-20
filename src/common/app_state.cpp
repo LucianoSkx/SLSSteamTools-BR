@@ -473,6 +473,42 @@ static constexpr int kMaxBoundedWorkers = 4;
 static constexpr int kCircuitCooldownMs = 8000;             // serve-local window once circuit opens
 static constexpr int kCircuitTripThreshold = 2;             // consecutive timeouts before opening
 
+// Coalesced background refresh with the same worker cap as the bounded path.
+// No promise and no circuit-breaker accounting: the caller already has a cache hit.
+static void StartBackgroundFetch(uint32_t accountId, uint32_t appId) {
+    uint64_t key = ((uint64_t)accountId << 32) | appId;
+    {
+        std::lock_guard<std::mutex> lk(g_boundedMtx);
+        if (g_boundedInflightKeys.count(key) ||
+            g_boundedWorkerCount.load(std::memory_order_relaxed) >= kMaxBoundedWorkers)
+            return;
+        g_boundedInflightKeys.insert(key);
+        g_boundedWorkerCount.fetch_add(1, std::memory_order_relaxed);
+    }
+    try {
+        std::thread([accountId, appId, key]() {
+            CR_SetCrashContext("BgFetchServeImmediate", "", appId);
+            struct SlotGuard {
+                uint64_t key;
+                ~SlotGuard() {
+                    std::lock_guard<std::mutex> lk(g_boundedMtx);
+                    g_boundedInflightKeys.erase(key);
+                    g_boundedWorkerCount.fetch_sub(1, std::memory_order_relaxed);
+                }
+            } slotGuard{key};
+            try {
+                StateFetchResult r = FetchCloudStateLive(accountId, appId);
+                RefreshServeCache(accountId, appId, r);
+            } catch (...) {
+            }
+        }).detach();
+    } catch (...) {
+        std::lock_guard<std::mutex> lk(g_boundedMtx);
+        g_boundedInflightKeys.erase(key);
+        g_boundedWorkerCount.fetch_sub(1, std::memory_order_relaxed);
+    }
+}
+
 StateFetchResult FetchCloudStateBounded(uint32_t accountId, uint32_t appId,
                                         int deadlineMs) {
     uint64_t key = ((uint64_t)accountId << 32) | appId;
@@ -497,25 +533,32 @@ StateFetchResult FetchCloudStateBounded(uint32_t accountId, uint32_t appId,
     // Detached worker: late completions warm the serve cache without blocking Steam.
     auto promise = std::make_shared<std::promise<StateFetchResult>>();
     auto future = promise->get_future();
-    std::thread([accountId, appId, key, promise]() {
-        CR_SetCrashContext("BgFetchBounded", "", appId);
-            // RAII: release inflight slot even on throw (bad_alloc -> std::terminate).
-        struct SlotGuard {
-            uint64_t key;
-            ~SlotGuard() {
-                std::lock_guard<std::mutex> lk(g_boundedMtx);
-                g_boundedInflightKeys.erase(key);
-                g_boundedWorkerCount.fetch_sub(1, std::memory_order_relaxed);
+    try {
+        std::thread([accountId, appId, key, promise]() {
+            CR_SetCrashContext("BgFetchBounded", "", appId);
+                // RAII: release inflight slot even on throw (bad_alloc -> std::terminate).
+            struct SlotGuard {
+                uint64_t key;
+                ~SlotGuard() {
+                    std::lock_guard<std::mutex> lk(g_boundedMtx);
+                    g_boundedInflightKeys.erase(key);
+                    g_boundedWorkerCount.fetch_sub(1, std::memory_order_relaxed);
+                }
+            } slotGuard{key};
+            try {
+                StateFetchResult r = FetchCloudStateLive(accountId, appId);
+                RefreshServeCache(accountId, appId, r);   // warm cache regardless of timeout
+                promise->set_value(std::move(r));         // ignored if caller abandoned
+            } catch (...) {
+                try { promise->set_value({ StateFetchStatus::FetchFailed, {} }); } catch (...) {}
             }
-        } slotGuard{key};
-        try {
-            StateFetchResult r = FetchCloudStateLive(accountId, appId);
-            RefreshServeCache(accountId, appId, r);   // warm cache regardless of timeout
-            promise->set_value(std::move(r));         // ignored if caller abandoned
-        } catch (...) {
-            try { promise->set_value({ StateFetchStatus::FetchFailed, {} }); } catch (...) {}
-        }
-    }).detach();
+        }).detach();
+    } catch (...) {
+        std::lock_guard<std::mutex> lk(g_boundedMtx);
+        g_boundedInflightKeys.erase(key);
+        g_boundedWorkerCount.fetch_sub(1, std::memory_order_relaxed);
+        return { StateFetchStatus::Timeout, {} };
+    }
 
     // Yield the coroutine while waiting: a hard wait here starves upload tasks and
     // causes k_EResultTimeout (result 16).
@@ -548,17 +591,22 @@ StateFetchResult FetchCloudStateBounded(uint32_t accountId, uint32_t appId,
 
 // Non-blocking serve: return cached snapshot immediately; refresh in bg without blocking.
 StateFetchResult FetchCloudStateServeImmediate(uint32_t accountId, uint32_t appId) {
-    std::lock_guard<std::mutex> lk(g_serveCacheMtx);
-    auto it = g_serveCache.find(ServeCacheKey(accountId, appId));
-    if (it != g_serveCache.end()) {
-        const ServeCacheEntry& e = it->second;
-        int64_t ageMs = NowMs() - e.fetchedAtMs;
-        if (ageMs >= 0 && ageMs < kServeCacheMaxAgeMs && !e.foreignSession) {
-            std::thread([accountId, appId]() { CR_SetCrashContext("BgFetchServeImmediate", "", appId); FetchCloudStateForServe(accountId, appId); }).detach();
-            return e.result;
+    StateFetchResult result{ StateFetchStatus::Timeout, {} };
+    bool cacheHit = false;
+    {
+        std::lock_guard<std::mutex> lk(g_serveCacheMtx);
+        auto it = g_serveCache.find(ServeCacheKey(accountId, appId));
+        if (it != g_serveCache.end()) {
+            const ServeCacheEntry& e = it->second;
+            int64_t ageMs = NowMs() - e.fetchedAtMs;
+            if (ageMs >= 0 && ageMs < kServeCacheMaxAgeMs && !e.foreignSession) {
+                result = e.result;
+                cacheHit = true;
+            }
         }
     }
-    return { StateFetchStatus::Timeout, {} };
+    if (cacheHit) StartBackgroundFetch(accountId, appId);
+    return result;
 }
 
 // Serve-path accessor: reuse a recent snapshot when provably safe, else live.
