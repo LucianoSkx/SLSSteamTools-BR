@@ -12,7 +12,7 @@ printf y > "$home/saves/77/99/b.sav"
 printf '{"provider":"folder","sync_folder_path":"%s"}\n' "$home/saves" \
   > "$home/.config/CloudRedirect/config.json"
 
-output="$(HOME="$home" "$cli" list-remote-app-ids folder 77)"
+output="$(HOME="$home" XDG_CONFIG_HOME="$home/.config" "$cli" list-remote-app-ids folder 77)"
 json="$(printf '%s\n' "$output" | awk '/^\{.*\}$/ { value=$0 } END { print value }')"
 
 printf '%s' "$json" | grep -q '"success":true'
