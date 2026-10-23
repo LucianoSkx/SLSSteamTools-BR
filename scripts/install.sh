@@ -24,9 +24,9 @@ FlatpakSteamInstallDir=$HOME/.var/app/com.valvesoftware.Steam/.steam/steam
 Headcrab_URL="${HEADCRAB_URL:-https://headcrab.pages.dev}"
 CR_BRANCH="${CR_BRANCH:-main}"
 REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
-CR_RAW="https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/$CR_BRANCH"
-CloudRedirectLib="$CR_RAW/cloud_redirect.so"
-CloudRedirectCLI="$CR_RAW/cloud_redirect_cli"
+CR_REL="https://github.com/LucianoSkx/SLSSteamTools-BR/releases/download/latest"
+CloudRedirectLib="$CR_REL/cloud_redirect.so"
+CloudRedirectCLI="$CR_REL/cloud_redirect_cli"
 
 # ── Cores e mensagens ──────────────────────────────────────────────────────
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'

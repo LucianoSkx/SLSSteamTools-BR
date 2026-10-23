@@ -32,6 +32,8 @@ jobs:
 
   linux32:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Build glibc 2.35 builder
@@ -54,3 +56,11 @@ jobs:
             build-ci/cloud_redirect.so
             build-ci/cloud_redirect_cli
           if-no-files-found: error
+      - name: Publish rolling release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest --title latest --notes "Build automático de $GITHUB_SHA"
+          gh release upload latest build-ci/cloud_redirect.so build-ci/cloud_redirect_cli --clobber
