@@ -129,9 +129,9 @@ CloudRedirect exibe "Não implantado" na aba **Instalação** e o botão
 
 ## Compilar o hook de 32 bits
 
-O `cloud_redirect.so` e a CLI já estão commitados no repositório, e é isso que o
-instalador usa. Para recompilar, é preciso podman ou docker, porque o build roda
-em container glibc-2.35 para casar com o runtime da Steam:
+O CI compila o `cloud_redirect.so` e a CLI a cada push na `main`, em container
+glibc-2.35, e publica na release `latest`. É de lá que o instalador baixa. Para
+recompilar localmente, é preciso podman ou docker:
 
 ```sh
 ./build.sh
