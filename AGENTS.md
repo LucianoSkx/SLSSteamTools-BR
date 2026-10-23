@@ -10,7 +10,7 @@ Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são resp
 - `scripts/install-plugins.sh`, `uninstall-plugins.sh`, `toggle-plugins.sh` — standalone, instaláveis via `curl | bash`
 - `sls-plugins/` — `.lua` de terceiros; única alteração admitida é o esquema https dos endpoints remotos, registrada no cabeçalho de proveniência
 - `src/`, `ui-linux/` — código próprio (hook C++ 32-bit + UI Qt6/QML em pt-BR)
-- `cloud_redirect.so`, `cloud_redirect_cli` — binários i386 commitados (snapshot); o instalador usa a release `latest`, publicada pelo CI a cada push na `main`; reconstruir com `./build.sh` toda vez que `src/` mudar
+- `cloud_redirect.so`, `cloud_redirect_cli` — artefatos i386 fora do git: o instalador baixa da release `latest`, publicada pelo CI a cada push na `main`; `./build.sh` gera uma cópia local ignorada pelo git
 - `test/` (shell, registrado no ctest) e `tests/` (C++, declarados no CMake só se o `.cpp` existir)
 
 ## Scripts shell

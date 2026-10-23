@@ -18,3 +18,5 @@ flatpak/release.sh
 release-*/
 deps/
 build_host/
+/cloud_redirect.so
+/cloud_redirect_cli
