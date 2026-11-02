@@ -306,12 +306,12 @@ Page {
                 Layout.rightMargin: 20
                 padding: 4
 
-                // ~72px per card; show up to 3 before scrolling.
+                // ~72px per card; at least 3 rows, then grow with the page.
                 readonly property int rowHeight: 72
-                readonly property int maxVisibleRows: 3
+                readonly property int minVisibleRows: 3
 
-                Layout.preferredHeight: Math.min(page.sourceApps.length, maxVisibleRows) * rowHeight
-                    + topPadding + bottomPadding
+                Layout.fillHeight: true
+                Layout.preferredHeight: minVisibleRows * rowHeight + topPadding + bottomPadding
 
                 ListView {
                     id: gamesList
@@ -320,7 +320,10 @@ Page {
                     model: page.sourceApps
                     spacing: 0
                     boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                        active: page.sourceApps.length * 72 > gamesList.height
+                    }
 
                     delegate: ItemDelegate {
                         width: gamesList.width
@@ -377,7 +380,7 @@ Page {
                 }
             }
 
-            Item { Layout.fillHeight: true; Layout.minimumHeight: 8 }
+            Item { height: 8 }
 
             RowLayout {
                 Layout.fillWidth: true
