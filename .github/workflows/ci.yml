@@ -17,7 +17,7 @@ jobs:
   host-tests:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Configure
         run: cmake -S . -B build_host -DCMAKE_BUILD_TYPE=Release
       - name: Build
@@ -35,7 +35,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build glibc 2.35 builder
         run: docker build -f Dockerfile.builder -t cloudredirect-builder .
       - name: Build and test 32-bit hook
@@ -49,7 +49,7 @@ jobs:
             ctest --test-dir build-ci --output-on-failure
           "
       - name: Upload hook artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: cloud_redirect-linux32
           path: |
