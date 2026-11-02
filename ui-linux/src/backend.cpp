@@ -596,7 +596,7 @@ void Backend::resolveAppNames()
 {
     QStringList ids;
     for (const auto &app : m_apps) {
-        if (app.name.startsWith("App ") && !m_nameCache.contains(app.appId))
+        if (!m_nameCache.contains(app.appId))
             ids.append(QString::number(app.appId));
     }
     
