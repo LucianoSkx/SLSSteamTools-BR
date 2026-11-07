@@ -67,6 +67,18 @@ checar_requisitos() {
 rodar_headcrab() {
     titulo "1/2  Steam + SLSsteam (h3adcr-b)"
     baixar "$Headcrab_URL" "$TMP/headcrab.sh"
+    # O h3adcr-b instala um app CloudRedirect flatpak (OAuth) + runtime KDE.
+    # Aqui so queremos o hook/steam.sh + a UI Qt6 nativa, entao neutralizamos
+    # so essa parte. O download do hook e o patch do steam.sh ficam intactos.
+    sed -i \
+        -e '/InstallFlatpakDep || return 1/d' \
+        -e '/^[[:space:]]*flatpak remote-delete --user cloudredirect/d' \
+        -e '/^[[:space:]]*flatpak remote-add --user --if-not-exists cloudredirect/d' \
+        -e '/^[[:space:]]*flatpak remote-add --user --if-not-exists flathub/d' \
+        -e '/^[[:space:]]*flatpak --user update --appstream/d' \
+        -e '/^[[:space:]]*flatpak install --user flathub org.kde.Platform/d' \
+        -e '/^[[:space:]]*flatpak install --user --reinstall org.cloudredirect.CloudRedirect/d' \
+        "$TMP/headcrab.sh"
     if : 2>/dev/null </dev/tty; then
         bash "$TMP/headcrab.sh" </dev/tty || die "o instalador do h3adcr-b falhou"
     else
@@ -165,10 +177,14 @@ main() {
 
     printf "\n"
     ok "pronto. Reinicie a Steam; a UI abre pelo menu ou por $CloudRedirectAppDir/cloud-redirect-ui"
-    if command -v flatpak >/dev/null 2>&1 \
-        && flatpak list --user --app --columns=application 2>/dev/null | grep -qx 'org.cloudredirect.CloudRedirect'; then
-        warn "o h3adcr-b instalou o app flatpak do CloudRedirect; a UI deste repo e a nativa."
-        warn "para remover o duplicado: flatpak uninstall --user org.cloudredirect.CloudRedirect"
+    if command -v flatpak >/dev/null 2>&1; then
+        if flatpak list --user --app --columns=application 2>/dev/null | grep -qx 'org.cloudredirect.CloudRedirect'; then
+            info "removendo o app CloudRedirect duplicado do flatpak (a UI deste repo e a nativa)"
+            flatpak uninstall --user org.cloudredirect.CloudRedirect --assumeyes --noninteractive >/dev/null 2>&1 || true
+            flatpak uninstall --user --unused --assumeyes --noninteractive >/dev/null 2>&1 || true
+            flatpak remote-delete --user cloudredirect --force >/dev/null 2>&1 || true
+            ok "app flatpak do CloudRedirect removido"
+        fi
     fi
 }
 

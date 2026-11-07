@@ -85,6 +85,12 @@ main() {
         warn "o launcher ainda aponta para o .so removido; e inofensivo (o loader so avisa),"
         warn "e ele volta ao normal na proxima execucao do h3adcr-b"
     fi
+
+    if command -v flatpak >/dev/null 2>&1; then
+        run_cmd flatpak uninstall --user org.cloudredirect.CloudRedirect --assumeyes --noninteractive || true
+        run_cmd flatpak uninstall --user --unused --assumeyes --noninteractive || true
+        run_cmd flatpak remote-delete --user cloudredirect --force || true
+    fi
 }
 
 main "$@"
