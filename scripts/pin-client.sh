@@ -111,7 +111,7 @@ estado() {
     if [ -f "$ARQ_CFG" ] && grep -qx 'BootStrapperInhibitAll=enable' "$ARQ_CFG"; then
         ok "atualizacao do cliente travada"
     else
-        warn "atualizacao do cliente liberada; rode '$0 pin' para travar"
+        warn "atualizacao do cliente liberada; rode 'pin-client.sh pin' para travar"
     fi
 }
 

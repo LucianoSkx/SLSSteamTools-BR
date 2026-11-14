@@ -30,7 +30,7 @@ Extraia e rode:
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install.sh | bash
 ```
 
-O script tem duas partes:
+O script tem três partes:
 
 1. Roda o instalador do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b)
    (`headcrab.pages.dev`). É ele que instala e mantém **Steam e SLSsteam**: pin
@@ -39,6 +39,9 @@ O script tem duas partes:
 2. Instala o **CloudRedirect deste repositório**: `cloud_redirect.so` (com
    `CrashGuard` e `StopWorkers` limitados), a CLI e a UI Qt6 nativa no lugar do
    app flatpak de OAuth do upstream, mais ícones e entrada de menu.
+3. Registra o atalho **Headcrab Updater** no menu: abre um terminal e roda o
+   instalador do h3adcr-b, que atualiza Steam e SLSsteam (o CloudRedirect não é
+   tocado).
 
 Ou seja: este projeto instala o CloudRedirect, a entrada do Headcrab Updater e,
 sob demanda, o pin do cliente (`pin-client.sh`). Steam e SLSsteam são do
@@ -71,11 +74,18 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 em `~/.steam/steam/steam.cfg` (com backup) e compara a versão do cliente com a
 compatível com o SLSsteam. `unpin` remove só essas duas chaves.
 
-### Headcrab Updater
+A referência da comparação é `1794424036` (a build que o h3adcr-b fixa); para
+trocar sem editar o script:
 
-A instalação registra a entrada **Headcrab Updater** no menu: abre um terminal e
-roda o instalador do h3adcr-b, que atualiza Steam e SLSsteam. O CloudRedirect
-não é tocado.
+```sh
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/pin-client.sh | CR_CLIENT_VERSION=1794424036 bash -s -- status
+```
+
+A variável só muda o valor comparado e o aviso; nada é baixado nem instalado.
+
+### Headcrab Updater: reinstalar ou remover
+
+A entrada já é criada pela instalação (passo 3). Para recriar ou apagar sozinho:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash
