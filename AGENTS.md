@@ -2,12 +2,14 @@
 
 Instalador do CloudRedirect pt-BR (hook 32-bit + CLI + UI Qt6). Bash + C++/Qt6 + Lua de terceiros.
 
-Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são responsabilidade do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b): `scripts/install.sh` baixa e roda `headcrab.pages.dev` e depois substitui o CloudRedirect que ele deixou (`.so`/CLI da release e app flatpak) pelo deste repo (`.so`/CLI próprios + UI Qt6 nativa). Pin do cliente, `dgsc`, manifestos, `steam.sh` e `config.yaml` do SLSsteam não são implementados aqui.
+Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são responsabilidade do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b): `scripts/install.sh` baixa e roda `headcrab.pages.dev` e depois substitui o CloudRedirect que ele deixou (`.so`/CLI da release e app flatpak) pelo deste repo (`.so`/CLI próprios + UI Qt6 nativa). Do h3adcr-b vêm também o pin do cliente (`scripts/pin-client.sh`, só `steam.cfg`) e a entrada de menu do Headcrab Updater (`scripts/install-updater.sh`). `dgsc`, manifestos, `steam.sh` e `config.yaml` do SLSsteam não são implementados aqui.
 
 ## Layout
 
-- `scripts/install.sh` — roda o h3adcr-b → baixa `cloud_redirect.so`/`cloud_redirect_cli` da release `latest` → compila a UI Qt6 → instala ícones e `.desktop`
+- `scripts/install.sh` — roda o h3adcr-b → baixa `cloud_redirect.so`/`cloud_redirect_cli` da release `latest` → compila a UI Qt6 → instala ícones e `.desktop` → instala o Headcrab Updater
 - `scripts/install-plugins.sh`, `uninstall-plugins.sh`, `toggle-plugins.sh` — standalone, instaláveis via `curl | bash`
+- `scripts/pin-client.sh` — standalone; `pin` (padrão)/`unpin`/`status`, mexe só em `~/.steam/steam/steam.cfg`
+- `scripts/install-updater.sh` — standalone; `.desktop` + ícone do Headcrab Updater, `--remove` desfaz
 - `sls-plugins/` — `.lua` de terceiros; única alteração admitida é o esquema https dos endpoints remotos, registrada no cabeçalho de proveniência
 - `src/`, `ui-linux/` — código próprio (hook C++ 32-bit + UI Qt6/QML em pt-BR)
 - `cloud_redirect.so`, `cloud_redirect_cli` — artefatos i386 fora do git: o instalador baixa da release `latest`, publicada pelo CI a cada push na `main`; `./build.sh` gera uma cópia local ignorada pelo git
@@ -20,7 +22,7 @@ Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são resp
 - Scripts standalone: autocontidos, sem depender de checkout (fallback para `raw.githubusercontent.com/.../$BRANCH/...`, `BRANCH="${CR_BRANCH:-main}"`)
 - Download é atômico (`baixar`: temp + `mv`); `HEADCRAB_URL` permite apontar o instalador do upstream para um stub em teste
 - `install.sh` não edita `config.yaml` do SLSsteam, `steam.sh` nem `steam.cfg`: se o hook não estiver no launcher, ele apenas avisa (o h3adcr-b liga com `DisableCloud: no`)
-- `uninstall.sh` remove só o CloudRedirect (hook, CLI, UI, ícones, `.desktop`); Steam/SLSsteam ficam intactos
+- `uninstall.sh` remove só o CloudRedirect (hook, CLI, UI, ícones, `.desktop`) e a entrada `headcrab.desktop` apontando para a URL raw deste repo; Steam/SLSsteam ficam intactos
 - Somente Steam nativo (`~/.local/share/...`); flatpak não é suportada
 - SLSsteam espera `Plugins: yes/no` (não `on/off`); `download.lua` exige seções `AdditionalDepots:` e `DecryptionKeys:` (vazias bastam)
 - Guard de sinal do hook só via `src/common/crash_guard.h` (`CrashGuard`, jmp_buf por thread, um handler por processo); não reimplementar

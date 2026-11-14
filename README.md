@@ -40,7 +40,8 @@ O script tem duas partes:
    `CrashGuard` e `StopWorkers` limitados), a CLI e a UI Qt6 nativa no lugar do
    app flatpak de OAuth do upstream, mais ícones e entrada de menu.
 
-Ou seja: este projeto só instala o CloudRedirect. Steam e SLSsteam são do
+Ou seja: este projeto instala o CloudRedirect, a entrada do Headcrab Updater e,
+sob demanda, o pin do cliente (`pin-client.sh`). Steam e SLSsteam são do
 h3adcr-b — se ele mudar, acompanham sozinhos, nada é duplicado aqui.
 
 Requisitos da parte 2: `curl`, `git`, `cmake` e Qt6 em desenvolvimento (Core,
@@ -54,6 +55,32 @@ Os plugins Lua são passo separado (abaixo) — `download.lua` e
 e jogos com DRM não funcionam.
 
 Reinicie a Steam depois (os hooks só valem para processos novos).
+
+### Travar a atualização do cliente (opcional)
+
+O h3adcr-b já trava o cliente durante a instalação. Para travar, destravar ou
+conferir sem rodar o instalador inteiro:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/pin-client.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/pin-client.sh | bash -s -- status
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/pin-client.sh | bash -s -- unpin
+```
+
+`pin` grava `BootStrapperInhibitAll=enable` e `BootStrapperForceSelfUpdate=disable`
+em `~/.steam/steam/steam.cfg` (com backup) e compara a versão do cliente com a
+compatível com o SLSsteam. `unpin` remove só essas duas chaves.
+
+### Headcrab Updater
+
+A instalação registra a entrada **Headcrab Updater** no menu: abre um terminal e
+roda o instalador do h3adcr-b, que atualiza Steam e SLSsteam. O CloudRedirect
+não é tocado.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash -s -- --remove
+```
 
 ### Plugins: reparar
 
@@ -122,6 +149,8 @@ Linhas de SLSsteam são instaladas pelo h3adcr-b; as de CloudRedirect, por este 
 | `~/.local/share/CloudRedirect/app/` | CloudRedirect | GUI, `cloud_redirect.so` e `cloud_redirect_cli` |
 | `~/.local/share/CloudRedirect/` | CloudRedirect | hook implantado (o `.so` e a CLI) |
 | `~/.config/CloudRedirect/` | CloudRedirect | `config.json`, `storage/`, `backups/`, `tokens_*.json`, `r2_credentials.json`, logs |
+| `~/.steam/steam/steam.cfg` | `pin-client.sh` | `BootStrapperInhibitAll` / `BootStrapperForceSelfUpdate` (trava do cliente) |
+| `~/.local/share/applications/headcrab.desktop` | Headcrab Updater | atalho que roda o instalador do h3adcr-b |
 
 O hook só é implantado com o SLSsteam instalado. Se você removeu o SLSsteam, o
 CloudRedirect exibe "Não implantado" na aba **Instalação** e o botão

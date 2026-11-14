@@ -78,6 +78,12 @@ main() {
     run_cmd rm -rf "$DIR_CR"
     ok "hook, CLI, UI, icones e entrada de menu removidos"
 
+    if [ -f "$DIR_APPS/headcrab.desktop" ] \
+        && grep -q 'raw.githubusercontent.com/Deadboy666/h3adcr-b' "$DIR_APPS/headcrab.desktop"; then
+        run_cmd rm -f "$DIR_APPS/headcrab.desktop" "$DIR_ICONES/48x48/apps/headcrab.png"
+        ok "entrada do Headcrab Updater removida"
+    fi
+
     warn "intactos: ~/.config/CloudRedirect (config, tokens, saves, backups e logs)"
     warn "intactos: Steam, SLSsteam e o launcher (o h3adcr-b cuida deles)"
     if [ -f "$HOME/.steam/steam/steam.sh" ] \

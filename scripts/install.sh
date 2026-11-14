@@ -25,6 +25,7 @@ Headcrab_URL="${HEADCRAB_URL:-https://headcrab.pages.dev}"
 CR_BRANCH="${CR_BRANCH:-main}"
 REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
 CR_REL="https://github.com/LucianoSkx/SLSSteamTools-BR/releases/download/latest"
+CR_RAW="https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/$CR_BRANCH"
 CloudRedirectLib="$CR_REL/cloud_redirect.so"
 CloudRedirectCLI="$CR_REL/cloud_redirect_cli"
 
@@ -157,6 +158,11 @@ EOF
     ok "hook, CLI e UI instalados em $CloudRedirectDir"
 }
 
+instalar_updater() {
+    baixar "$CR_RAW/scripts/install-updater.sh" "$TMP/install-updater.sh"
+    bash "$TMP/install-updater.sh" || die "falha ao instalar o Headcrab Updater"
+}
+
 conferir_launcher() {
     local launcher="$SteamInstallDir/steam.sh"
     if [ -f "$launcher" ] && grep -q 'CloudRedirect/cloud_redirect.so' "$launcher"; then
@@ -173,6 +179,7 @@ main() {
     checar_requisitos
     rodar_headcrab
     instalar_cr
+    instalar_updater
     conferir_launcher
 
     printf "\n"
