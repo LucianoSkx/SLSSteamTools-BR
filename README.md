@@ -83,6 +83,10 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 
 A variável só muda o valor comparado e o aviso; nada é baixado nem instalado.
 
+Se a Steam ficar presa em "Iniciando a sessão" depois de um update do cliente,
+é o pin barrando o handoff: rode `unpin`, abra a Steam para ela concluir o
+update e rode `pin` de novo.
+
 ### Headcrab Updater: reinstalar ou remover
 
 A entrada já é criada pela instalação (passo 3). Para recriar ou apagar sozinho:
