@@ -153,8 +153,7 @@ conferir_launcher() {
         return 0
     fi
     warn "o launcher em $launcher nao carrega o CloudRedirect."
-    warn "isso e definido pelo h3adcr-b, que so liga o hook com 'DisableCloud: no' no"
-    warn "~/.config/SLSsteam/config.yaml. Habilite e rode o h3adcr-b de novo."
+    warn "rode scripts/headcrab-run.sh para religar o hook no steam.sh"
 }
 
 main() {

@@ -8,7 +8,10 @@ set -euo pipefail
 
 HEADCRAB_URL="${HEADCRAB_URL:-https://headcrab.pages.dev}"
 STEAM_SH="$HOME/.local/share/Steam/steam.sh"
-HOOK_SO="$HOME/.local/share/CloudRedirect/cloud_redirect.so"
+CR_DIR="$HOME/.local/share/CloudRedirect"
+CR_APP_DIR="$CR_DIR/app"
+HOOK_SO="$CR_DIR/cloud_redirect.so"
+CR_REL_URL="${CR_REL_URL:-https://github.com/LucianoSkx/SLSSteamTools-BR/releases/download/latest}"
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'; c_red='\033[1;31m'; c_cyan='\033[1;36m'
 info() { printf "${c_cyan}[info]${c_reset} %s\n" "$*"; }
@@ -91,4 +94,32 @@ garantir_hook_no_launcher() {
     ok "hook do CloudRedirect religado no steam.sh"
 }
 
+# Hook e CLI vem da release `latest` deste repo; só troca quando o arquivo muda.
+atualizar_cloudredirect() {
+    local nome tmp alvo mudou=0
+    mkdir -p "$CR_DIR" "$CR_APP_DIR"
+    for nome in cloud_redirect.so cloud_redirect_cli; do
+        tmp="$TMP/$nome.novo"
+        if ! curl -fsSL --retry 3 --connect-timeout 15 -o "$tmp" "$CR_REL_URL/$nome"; then
+            warn "falha ao baixar $nome; mantendo o instalado"
+            continue
+        fi
+        if command -v file >/dev/null 2>&1 && ! file -b "$tmp" | grep -q 'ELF 32-bit'; then
+            warn "$nome nao e ELF 32-bit; ignorado"
+            continue
+        fi
+        for alvo in "$CR_DIR/$nome" "$CR_APP_DIR/$nome"; do
+            cmp -s "$tmp" "$alvo" && continue
+            install -m 755 "$tmp" "$alvo" || die "falha ao instalar $alvo"
+            mudou=1
+        done
+    done
+    if [ "$mudou" = 1 ]; then
+        ok "hook e CLI do CloudRedirect atualizados ($CR_DIR)"
+    else
+        ok "hook e CLI do CloudRedirect ja estavam na ultima versao"
+    fi
+}
+
+atualizar_cloudredirect
 garantir_hook_no_launcher

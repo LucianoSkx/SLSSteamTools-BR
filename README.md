@@ -86,9 +86,11 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash -s -- --remove
 ```
 
-Depois de rodar o updater, o `headcrab-run.sh` recoloca a linha `INJECT_CR`
+Depois de rodar o updater, o `headcrab-run.sh` sincroniza o hook e a CLI com a
+release `latest` (só troca o que mudou) e recoloca a linha `INJECT_CR`
 (LD_PRELOAD do hook) no `steam.sh`: o upstream hoje só injeta o CloudRedirect
-pelo app flatpak, que este repo não usa.
+pelo app flatpak, que este repo não usa. A UI Qt6 não entra nessa atualização —
+ela é compilada pelo `install.sh`.
 
 ### Plugins: ligar/desligar
 
