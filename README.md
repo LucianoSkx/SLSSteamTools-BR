@@ -41,9 +41,8 @@ O script tem três partes:
    instalador do h3adcr-b com a parte de CloudRedirect neutralizada — só Steam
    e SLSsteam, nada de flatpak.
 
-Ou seja: este projeto instala o CloudRedirect, a entrada do Headcrab Updater e,
-sob demanda, o pin do cliente (`pin-client.sh`). Steam e SLSsteam são do
-h3adcr-b — se ele mudar, acompanham sozinhos, nada é duplicado aqui.
+Steam e SLSsteam são do h3adcr-b — se ele mudar, acompanham sozinhos, nada é
+duplicado aqui.
 
 Requisitos da parte 2: `curl`, `git`, `cmake` e Qt6 em desenvolvimento (Core,
 Quick, QuickControls2, DBus, Network). Só Steam nativa; flatpak não é suportada.
@@ -59,8 +58,8 @@ Reinicie a Steam depois (os hooks só valem para processos novos).
 
 ### Travar a atualização do cliente (opcional)
 
-O h3adcr-b já trava o cliente durante a instalação. Para travar, destravar ou
-conferir sem rodar o instalador inteiro:
+O h3adcr-b já trava o cliente na instalação. Para conferir, travar ou destravar
+sem rodar o instalador inteiro:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/pin-client.sh | bash
@@ -70,16 +69,8 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 
 `pin` grava `BootStrapperInhibitAll=enable` e `BootStrapperForceSelfUpdate=disable`
 em `~/.steam/steam/steam.cfg` (com backup) e compara a versão do cliente com a
-compatível com o SLSsteam. `unpin` remove só essas duas chaves.
-
-A referência da comparação é `1794424036` (a build que o h3adcr-b fixa); para
-trocar sem editar o script:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/pin-client.sh | CR_CLIENT_VERSION=1794424036 bash -s -- status
-```
-
-A variável só muda o valor comparado e o aviso; nada é baixado nem instalado.
+build compatível (`1794536281`); `unpin` remove só essas duas chaves. Para
+comparar com outra build, `CR_CLIENT_VERSION=... bash -s -- status`.
 
 Se a Steam ficar presa em "Iniciando a sessão" depois de um update do cliente,
 é o pin barrando o handoff: rode `unpin`, abra a Steam para ela concluir o
@@ -178,8 +169,5 @@ Só a interface (`ui-linux/`) é compilada direto no host, com Qt6.
 
 ## Licença
 
-Segue a licença do upstream. Ver [LICENSE](LICENSE).
-
-## Support
-
-Issues: https://github.com/LucianoSkx/SLSSteamTools-BR/issues
+Segue a licença do upstream. Ver [LICENSE](LICENSE). Issues em
+https://github.com/LucianoSkx/SLSSteamTools-BR/issues.

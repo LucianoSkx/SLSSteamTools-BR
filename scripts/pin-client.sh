@@ -9,7 +9,7 @@ set -euo pipefail
 STEAM_DIR="$HOME/.steam/steam"
 FLATPAK_DIR="$HOME/.var/app/com.valvesoftware.Steam/.steam/steam"
 ARQ_CFG="$STEAM_DIR/steam.cfg"
-CLIENTE_COMPATIVEL="${CR_CLIENT_VERSION:-1794424036}"
+CLIENTE_COMPATIVEL="${CR_CLIENT_VERSION:-1794536281}"
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
 c_red='\033[1;31m'; c_cyan='\033[1;36m'
