@@ -40,8 +40,8 @@ O script tem três partes:
    `CrashGuard` e `StopWorkers` limitados), a CLI e a UI Qt6 nativa no lugar do
    app flatpak de OAuth do upstream, mais ícones e entrada de menu.
 3. Registra o atalho **Headcrab Updater** no menu: abre um terminal e roda o
-   instalador do h3adcr-b, que atualiza Steam e SLSsteam (o CloudRedirect não é
-   tocado).
+   instalador do h3adcr-b com a parte de CloudRedirect neutralizada — só Steam
+   e SLSsteam, nada de flatpak.
 
 Ou seja: este projeto instala o CloudRedirect, a entrada do Headcrab Updater e,
 sob demanda, o pin do cliente (`pin-client.sh`). Steam e SLSsteam são do

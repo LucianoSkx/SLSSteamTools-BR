@@ -21,7 +21,6 @@ SteamInstallDir=$HOME/.steam/steam
 FlatpakSteamInstallDir=$HOME/.var/app/com.valvesoftware.Steam/.steam/steam
 
 # ── URLs ───────────────────────────────────────────────────────────────────
-Headcrab_URL="${HEADCRAB_URL:-https://headcrab.pages.dev}"
 CR_BRANCH="${CR_BRANCH:-main}"
 REPO_CR="https://github.com/LucianoSkx/SLSSteamTools-BR.git"
 CR_REL="https://github.com/LucianoSkx/SLSSteamTools-BR/releases/download/latest"
@@ -66,26 +65,9 @@ checar_requisitos() {
 }
 
 rodar_headcrab() {
-    titulo "1/2  Steam + SLSsteam (h3adcr-b)"
-    baixar "$Headcrab_URL" "$TMP/headcrab.sh"
-    # O h3adcr-b instala um app CloudRedirect flatpak (OAuth) + runtime KDE.
-    # Aqui so queremos o hook/steam.sh + a UI Qt6 nativa, entao neutralizamos
-    # so essa parte. O download do hook e o patch do steam.sh ficam intactos.
-    sed -i \
-        -e '/InstallFlatpakDep || return 1/d' \
-        -e '/^[[:space:]]*flatpak remote-delete --user cloudredirect/d' \
-        -e '/^[[:space:]]*flatpak remote-add --user --if-not-exists cloudredirect/d' \
-        -e '/^[[:space:]]*flatpak remote-add --user --if-not-exists flathub/d' \
-        -e '/^[[:space:]]*flatpak --user update --appstream/d' \
-        -e '/^[[:space:]]*flatpak install --user flathub org.kde.Platform/d' \
-        -e '/^[[:space:]]*flatpak install --user --reinstall org.cloudredirect.CloudRedirect/d' \
-        "$TMP/headcrab.sh"
-    if : 2>/dev/null </dev/tty; then
-        bash "$TMP/headcrab.sh" </dev/tty || die "o instalador do h3adcr-b falhou"
-    else
-        bash "$TMP/headcrab.sh" </dev/null || die "o instalador do h3adcr-b falhou"
-    fi
-    ok "Steam e SLSsteam entregues ao h3adcr-b"
+    titulo "1/3  Steam + SLSsteam (h3adcr-b)"
+    baixar "$CR_RAW/scripts/headcrab-run.sh" "$TMP/headcrab-run.sh"
+    bash "$TMP/headcrab-run.sh"
 }
 
 obter_fonte_cr() {
@@ -107,7 +89,7 @@ obter_fonte_cr() {
 }
 
 instalar_cr() {
-    titulo "2/2  CloudRedirect"
+    titulo "2/3  CloudRedirect"
     obter_fonte_cr
     mkdir -p "$CloudRedirectDir" "$CloudRedirectAppDir" "$ApplicationDirectory"
 
@@ -159,6 +141,7 @@ EOF
 }
 
 instalar_updater() {
+    titulo "3/3  Headcrab Updater"
     baixar "$CR_RAW/scripts/install-updater.sh" "$TMP/install-updater.sh"
     bash "$TMP/install-updater.sh" || die "falha ao instalar o Headcrab Updater"
 }

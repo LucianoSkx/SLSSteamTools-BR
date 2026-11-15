@@ -2,14 +2,15 @@
 
 Instalador do CloudRedirect pt-BR (hook 32-bit + CLI + UI Qt6). Bash + C++/Qt6 + Lua de terceiros.
 
-Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são responsabilidade do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b): `scripts/install.sh` baixa e roda `headcrab.pages.dev` e depois substitui o CloudRedirect que ele deixou (`.so`/CLI da release e app flatpak) pelo deste repo (`.so`/CLI próprios + UI Qt6 nativa). Do h3adcr-b vêm também o pin do cliente (`scripts/pin-client.sh`, só `steam.cfg`) e a entrada de menu do Headcrab Updater (`scripts/install-updater.sh`). `dgsc`, manifestos, `steam.sh` e `config.yaml` do SLSsteam não são implementados aqui.
+Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são responsabilidade do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b): `scripts/headcrab-run.sh` baixa `headcrab.pages.dev`, neutraliza a chamada `crininstall` (o upstream instalaria o app CloudRedirect flatpak) e roda. **Nenhum script instala flatpak.** Do h3adcr-b vêm também o pin do cliente (`scripts/pin-client.sh`, só `steam.cfg`) e a entrada de menu do Headcrab Updater (`scripts/install-updater.sh`). `dgsc`, manifestos, `steam.sh` e `config.yaml` do SLSsteam não são implementados aqui.
 
 ## Layout
 
-- `scripts/install.sh` — roda o h3adcr-b → baixa `cloud_redirect.so`/`cloud_redirect_cli` da release `latest` → compila a UI Qt6 → instala ícones e `.desktop` → instala o Headcrab Updater
+- `scripts/headcrab-run.sh` — único caminho para o h3adcr-b; aborta se a chamada `crininstall` sumir do script do upstream
+- `scripts/install.sh` — roda `headcrab-run.sh` → baixa `cloud_redirect.so`/`cloud_redirect_cli` da release `latest` → compila a UI Qt6 → instala ícones e `.desktop` → instala o Headcrab Updater
 - `scripts/install-plugins.sh`, `uninstall-plugins.sh`, `toggle-plugins.sh` — standalone, instaláveis via `curl | bash`
 - `scripts/pin-client.sh` — standalone; `pin` (padrão)/`unpin`/`status`, mexe só em `~/.steam/steam/steam.cfg`
-- `scripts/install-updater.sh` — standalone; `.desktop` + ícone do Headcrab Updater, `--remove` desfaz
+- `scripts/install-updater.sh` — standalone; `.desktop` + ícone do Headcrab Updater (Exec chama `headcrab-run.sh`), `--remove` desfaz
 - `sls-plugins/` — `.lua` de terceiros; única alteração admitida é o esquema https dos endpoints remotos, registrada no cabeçalho de proveniência
 - `src/`, `ui-linux/` — código próprio (hook C++ 32-bit + UI Qt6/QML em pt-BR)
 - `cloud_redirect.so`, `cloud_redirect_cli` — artefatos i386 fora do git: o instalador baixa da release `latest`, publicada pelo CI a cada push na `main`; `./build.sh` gera uma cópia local ignorada pelo git

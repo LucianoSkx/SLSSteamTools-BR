@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Registra o "Headcrab Updater" no menu de aplicativos: atualiza Steam e
-# SLSsteam rodando o instalador do h3adcr-b num terminal.
+# SLSsteam sem a parte de CloudRedirect do upstream (nada de flatpak).
 #
 # Uso:  curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash
 #       ./scripts/install-updater.sh [--remove]
@@ -10,7 +10,8 @@ APPS_DIR="$HOME/.local/share/applications"
 ICONE_DIR="$HOME/.local/share/icons/hicolor/48x48/apps"
 DESKTOP="$APPS_DIR/headcrab.desktop"
 ICONE="$ICONE_DIR/headcrab.png"
-UPDATER_URL="https://raw.githubusercontent.com/Deadboy666/h3adcr-b/main/headcrab.sh"
+BRANCH="${CR_BRANCH:-main}"
+UPDATER_URL="https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/$BRANCH/scripts/headcrab-run.sh"
 ICONE_URL="https://raw.githubusercontent.com/Deadboy666/h3adcr-b-modul3s/main/headcrab.png"
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
@@ -29,8 +30,9 @@ Uso: ./scripts/install-updater.sh [--remove]
   (sem opcao)  instala icone e entrada "Headcrab Updater" no menu
   --remove     apaga a entrada e o icone
 
-A entrada abre um terminal e roda o instalador do h3adcr-b, que atualiza
-Steam e SLSsteam. O CloudRedirect nao e tocado.
+A entrada abre um terminal, baixa o instalador do h3adcr-b e roda com a parte
+de CloudRedirect neutralizada: nada de flatpak. Steam e SLSsteam vem de la;
+hook, CLI e UI continuam os deste repositorio.
 EOF
     exit 0
 }
