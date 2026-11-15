@@ -8,7 +8,7 @@ Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são resp
 
 - `scripts/headcrab-run.sh` — único caminho para o h3adcr-b; aborta se as chamadas `crinstall`/`SetupHeadcrab_Updater` sumirem do script do upstream
 - `scripts/install.sh` — roda `headcrab-run.sh` → baixa `cloud_redirect.so`/`cloud_redirect_cli` da release `latest` → compila a UI Qt6 → instala ícones e `.desktop` → instala o Headcrab Updater
-- `scripts/install-plugins.sh`, `uninstall-plugins.sh`, `toggle-plugins.sh` — standalone, instaláveis via `curl | bash`
+- `scripts/toggle-plugins.sh` — standalone, instalável via `curl | bash`; mexe só em `Plugins: yes/no`
 - `scripts/pin-client.sh` — standalone; `pin` (padrão)/`unpin`/`status`, mexe só em `~/.steam/steam/steam.cfg`
 - `scripts/install-updater.sh` — standalone; `.desktop` + ícone do Headcrab Updater (Exec chama `headcrab-run.sh`), `--remove` desfaz
 - `src/`, `ui-linux/` — código próprio (hook C++ 32-bit + UI Qt6/QML em pt-BR)

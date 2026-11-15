@@ -52,8 +52,8 @@ O hook só é carregado quando o SLSsteam está com `DisableCloud: no` no
 `~/.config/SLSsteam/config.yaml` (padrão do h3adcr-b).
 
 Os plugins Lua (spacebunny, styx, lobster, lettuce) são baixados e instalados
-pelo ASSella. Este repo só garante `Plugins: yes` e as seções
-`AdditionalDepots:`/`DecryptionKeys:` no `config.yaml` do SLSsteam (abaixo).
+pelo ASSella, junto com `Plugins: yes` e as seções
+`AdditionalDepots:`/`DecryptionKeys:` no `config.yaml` do SLSsteam.
 
 Reinicie a Steam depois (os hooks só valem para processos novos).
 
@@ -94,22 +94,10 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash -s -- --remove
 ```
 
-### Plugins: config e interruptor
+### Plugins: ligar/desligar
 
-Preparar o `config.yaml` (`Plugins: yes` e as seções de depots/chaves):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-plugins.sh | bash
-```
-
-Remover plugins aposentados de instalações antigas (`download.lua`,
-`spliced-tickets.lua`):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/uninstall-plugins.sh | bash
-```
-
-Ligar/desligar:
+Os `.lua` são instalados pelo ASSella. Para desligar (ou religar) todos sem
+mexer nos arquivos:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/toggle-plugins.sh | bash -s -- off
