@@ -56,6 +56,16 @@ jobs:
             build-ci/cloud_redirect.so
             build-ci/cloud_redirect_cli
           if-no-files-found: error
+      - name: Publish versioned release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver=$(sed -n 's:.*<ReleaseVersion>\([^<]*\)</ReleaseVersion>.*:\1:p' Version.props)
+          notes="Versão ${ver} — build automático de ${GITHUB_SHA:0:7} (hook + CLI 32-bit)."
+          gh release view "v${ver}" >/dev/null 2>&1 || \
+            gh release create "v${ver}" --title "CloudRedirect ${ver}" --notes "$notes" \
+              build-ci/cloud_redirect.so build-ci/cloud_redirect_cli
       - name: Publish rolling release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
