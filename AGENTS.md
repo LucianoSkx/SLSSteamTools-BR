@@ -11,7 +11,6 @@ Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são resp
 - `scripts/install-plugins.sh`, `uninstall-plugins.sh`, `toggle-plugins.sh` — standalone, instaláveis via `curl | bash`
 - `scripts/pin-client.sh` — standalone; `pin` (padrão)/`unpin`/`status`, mexe só em `~/.steam/steam/steam.cfg`
 - `scripts/install-updater.sh` — standalone; `.desktop` + ícone do Headcrab Updater (Exec chama `headcrab-run.sh`), `--remove` desfaz
-- `sls-plugins/` — `.lua` de terceiros; única alteração admitida é o esquema https dos endpoints remotos, registrada no cabeçalho de proveniência
 - `src/`, `ui-linux/` — código próprio (hook C++ 32-bit + UI Qt6/QML em pt-BR)
 - `cloud_redirect.so`, `cloud_redirect_cli` — artefatos i386 fora do git: o instalador baixa da release `latest`, publicada pelo CI a cada push na `main`; `./build.sh` gera uma cópia local ignorada pelo git
 - `test/` (shell, registrado no ctest) e `tests/` (C++, declarados no CMake só se o `.cpp` existir)
@@ -25,7 +24,7 @@ Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são resp
 - `install.sh` não edita `config.yaml` do SLSsteam, `steam.sh` nem `steam.cfg`: se o hook não estiver no launcher, ele apenas avisa (o h3adcr-b liga com `DisableCloud: no`)
 - `uninstall.sh` remove só o CloudRedirect (hook, CLI, UI, ícones, `.desktop`) e a entrada `headcrab.desktop` apontando para a URL raw deste repo; Steam/SLSsteam ficam intactos
 - Somente Steam nativo (`~/.local/share/...`); flatpak não é suportada
-- SLSsteam espera `Plugins: yes/no` (não `on/off`); `download.lua` exige seções `AdditionalDepots:` e `DecryptionKeys:` (vazias bastam)
+- SLSsteam espera `Plugins: yes/no` (não `on/off`); os plugins Lua vêm do ASSella, e o `lobster.lua` lê as seções `AdditionalDepots:` e `DecryptionKeys:` (vazias bastam)
 - Guard de sinal do hook só via `src/common/crash_guard.h` (`CrashGuard`, jmp_buf por thread, um handler por processo); não reimplementar
 
 ## Docs

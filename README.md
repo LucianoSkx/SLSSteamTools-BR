@@ -4,25 +4,23 @@ Ferramentas para Steam no Linux, com a GUI em pt-BR. Três partes:
 
 | | |
 |---|---|
-| **[psyche-BR](https://github.com/LucianoSkx/psyche-BR)** | Busca pacotes na Hubcap e mescla no `config.yaml` do SLSsteam. |
+| **[ASSella](https://github.com/niwia/ASSella)** | Baixa depots e chaves e instala os plugins Lua no `config.yaml` do SLSsteam. |
 | **[SLSsteam](https://github.com/AceSLS/SLSsteam)** | Libera Steam Cloud, tempo de jogo e conquistas em jogos não possuídos. |
 | **[CloudRedirect](https://github.com/LucianoSkx/SLSSteamTools-BR)** | Leva os saves para nuvem externa (Drive, OneDrive, S3, R2, pasta). |
 
 ## Instalar
 
-### 1. psyche-BR
+### 1. ASSella
 
-Baixe o `*-setup.zip`:
-
-```sh
-https://github.com/LucianoSkx/psyche-BR/releases
-```
-
-Extraia e rode:
+Baixa depots, chaves e os plugins Lua que o SLSsteam usa. Instalador do
+próprio upstream (precisa de `libfuse2`; no Arch, `fuse2`):
 
 ```sh
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bash -s -- --uninstall
 ```
+
+Dados em `~/.local/share/ACCELA/`.
 
 ### 2. Steam + SLSsteam + CloudRedirect (1 comando)
 
@@ -53,9 +51,9 @@ Quick, QuickControls2, DBus, Network). Só Steam nativa; flatpak não é suporta
 O hook só é carregado quando o SLSsteam está com `DisableCloud: no` no
 `~/.config/SLSsteam/config.yaml` (padrão do h3adcr-b).
 
-Os plugins Lua são passo separado (abaixo) — `download.lua` e
-`spliced-tickets.lua` são **obrigatórios** pro SLSsteam, sem eles depots extras
-e jogos com DRM não funcionam.
+Os plugins Lua (spacebunny, styx, lobster, lettuce) são baixados e instalados
+pelo ASSella. Este repo só garante `Plugins: yes` e as seções
+`AdditionalDepots:`/`DecryptionKeys:` no `config.yaml` do SLSsteam (abaixo).
 
 Reinicie a Steam depois (os hooks só valem para processos novos).
 
@@ -96,15 +94,16 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash -s -- --remove
 ```
 
-### Plugins: reparar
+### Plugins: config e interruptor
 
-Instalar:
+Preparar o `config.yaml` (`Plugins: yes` e as seções de depots/chaves):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-plugins.sh | bash
 ```
 
-Remover:
+Remover plugins aposentados de instalações antigas (`download.lua`,
+`spliced-tickets.lua`):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/uninstall-plugins.sh | bash
@@ -149,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 Apaga hook, CLI, UI, ícones e entrada de menu do CloudRedirect. Steam, SLSsteam
 e o `steam.sh` não são tocados (são do h3adcr-b).
 Dados preservados: `~/.config/CloudRedirect/`, `~/.config/SLSsteam/config.yaml`,
-`~/.local/share/psyche/`.
+`~/.local/share/ACCELA/`.
 
 ## O que fica onde
 
@@ -157,7 +156,7 @@ Linhas de SLSsteam são instaladas pelo h3adcr-b; as de CloudRedirect, por este 
 
 | Caminho | Programa | O quê |
 |---|---|---|
-| `~/.local/share/psyche/` | psyche-BR | binário, `settings.json` (chave Hubcap), runtime Qt |
+| `~/.local/share/ACCELA/` | ASSella | AppImage, depots, banco de manifests e plugins Lua |
 | `~/.local/share/SLSsteam/` | SLSsteam | `SLSsteam.so`, `library-inject.so` e o wrapper `path/` |
 | `~/.config/SLSsteam/config.yaml` | SLSsteam | config, com `DisableCloud: no` |
 | `~/.local/share/CloudRedirect/app/` | CloudRedirect | GUI, `cloud_redirect.so` e `cloud_redirect_cli` |
@@ -182,22 +181,9 @@ recompilar localmente, é preciso podman ou docker:
 
 Só a interface (`ui-linux/`) é compilada direto no host, com Qt6.
 
-## Extra: ASSella (opcional)
-
-Alternativa ao psyche-BR para jogos que a Steam não reconhece. Instalador do
-próprio upstream (precisa de `libfuse2`; no Arch, `fuse2`):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bash
-curl -fsSL https://raw.githubusercontent.com/niwia/ASSella/beta/install.sh | bash -s -- --uninstall
-```
-
-Dados em `~/.local/share/ACCELA/`.
-
 ## Credits
 
-- [ciscosweater](https://github.com/ciscosweater) — psyche original
-- [niwia](https://github.com/niwia) — ASSella (extra)
+- [niwia](https://github.com/niwia) — ASSella
 - [crghofficial](https://github.com/crghofficial/cloudredirect) — CloudRedirect original
 - [AceSLS](https://github.com/AceSLS/SLSsteam) — SLSsteam
 - [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — h3adcr-b (instala e mantém Steam e SLSsteam; dependência do instalador)
