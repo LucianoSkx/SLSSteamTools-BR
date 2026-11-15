@@ -33,6 +33,13 @@ ls "$steam"/steam.cfg.instbackup-* >/dev/null || { cat "$tmp/out"; echo "pin nao
 HOME="$home" CR_CLIENT_VERSION=1 bash "$script" status >"$tmp/out" 2>&1
 grep -q 'fora da versao compativel' "$tmp/out" || { cat "$tmp/out"; exit 1; }
 
+printf '\tHeadcrabCompatibleClientVer=1111111111\n' >"$tmp/headcrab.sh"
+HOME="$home" HEADCRAB_URL="file://$tmp/headcrab.sh" bash "$script" status >"$tmp/out" 2>&1
+grep -q 'compativel com SLSsteam: 1111111111' "$tmp/out" || { cat "$tmp/out"; echo "nao leu a build do h3adcr-b"; exit 1; }
+
+HOME="$home" HEADCRAB_URL="file://$tmp/nao-existe" bash "$script" status >"$tmp/out" 2>&1
+grep -q 'compativel com SLSsteam: 1794424036' "$tmp/out" || { cat "$tmp/out"; echo "fallback da build falhou"; exit 1; }
+
 run unpin
 [ "$(cat "$steam/steam.cfg")" = "OutraChave=1" ] || { cat "$tmp/out"; echo "unpin nao preservou o resto"; exit 1; }
 

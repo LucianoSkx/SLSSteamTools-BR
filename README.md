@@ -69,8 +69,9 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 
 `pin` grava `BootStrapperInhibitAll=enable` e `BootStrapperForceSelfUpdate=disable`
 em `~/.steam/steam/steam.cfg` (com backup) e compara a versão do cliente com a
-build compatível (`1794536281`); `unpin` remove só essas duas chaves. Para
-comparar com outra build, `CR_CLIENT_VERSION=... bash -s -- status`.
+build que o h3adcr-b declara para o SLSsteam (lida do script dele em
+`headcrab.pages.dev`; offline, cai em `1794424036`). `unpin` remove só essas duas
+chaves. Para comparar com outra build, `CR_CLIENT_VERSION=... bash -s -- status`.
 
 Se a Steam ficar presa em "Iniciando a sessão" depois de um update do cliente,
 é o pin barrando o handoff: rode `unpin`, abra a Steam para ela concluir o

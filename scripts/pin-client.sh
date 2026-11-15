@@ -9,7 +9,8 @@ set -euo pipefail
 STEAM_DIR="$HOME/.steam/steam"
 FLATPAK_DIR="$HOME/.var/app/com.valvesoftware.Steam/.steam/steam"
 ARQ_CFG="$STEAM_DIR/steam.cfg"
-CLIENTE_COMPATIVEL="${CR_CLIENT_VERSION:-1794536281}"
+HEADCRAB_URL="${HEADCRAB_URL:-https://headcrab.pages.dev}"
+CLIENTE_COMPATIVEL_PADRAO=1794424036
 
 c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'
 c_red='\033[1;31m'; c_cyan='\033[1;36m'
@@ -55,6 +56,17 @@ versao_cliente() {
     return 1
 }
 
+# O h3adcr-b baixa o cliente para a build que ele declara no proprio script.
+compativel_upstream() {
+    local v=""
+    [ -n "${CR_CLIENT_VERSION:-}" ] && { printf '%s\n' "$CR_CLIENT_VERSION"; return 0; }
+    if command -v curl >/dev/null 2>&1; then
+        v="$(curl -fsSL --max-time 10 "$HEADCRAB_URL" 2>/dev/null \
+            | sed -n 's/.*HeadcrabCompatibleClientVer=\([0-9][0-9]*\).*/\1/p' | head -n1)" || v=""
+    fi
+    printf '%s\n' "${v:-$CLIENTE_COMPATIVEL_PADRAO}"
+}
+
 travar() {
     local bkp tmp
     checar_steam
@@ -96,14 +108,15 @@ destravar() {
 }
 
 estado() {
-    local versao
+    local versao compat
     checar_steam
     if ! versao="$(versao_cliente)"; then
         warn "manifesto do cliente nao encontrado em $STEAM_DIR/package"
         return 0
     fi
-    info "cliente Steam: $versao (compativel com SLSsteam: $CLIENTE_COMPATIVEL)"
-    if [ "$versao" = "$CLIENTE_COMPATIVEL" ]; then
+    compat="$(compativel_upstream)"
+    info "cliente Steam: $versao (compativel com SLSsteam: $compat)"
+    if [ "$versao" = "$compat" ]; then
         ok "versao do cliente compativel"
     else
         warn "cliente fora da versao compativel; rode o Headcrab Updater para realinhar"
