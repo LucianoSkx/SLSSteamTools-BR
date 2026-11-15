@@ -40,11 +40,15 @@ checar_steam() {
     [ -d "$STEAM_DIR" ] || die "Steam nativa nao encontrada em $STEAM_DIR"
 }
 
+# O manifesto diz para onde a Steam quer ir; a build rodando esta no bootstrap.
 versao_cliente() {
     local f v
-    for f in "$STEAM_DIR/package/steam_client_steamrt64.installed" \
-             "$STEAM_DIR/package/steam_client_steamrt64.manifest" \
-             "$STEAM_DIR/package/steam_client_ubuntu12.installed" \
+    for f in "$HOME/.local/share/Steam/logs/bootstrap_log.txt" "$STEAM_DIR/logs/bootstrap_log.txt"; do
+        [ -f "$f" ] || continue
+        v="$(grep -o 'installed version [0-9]\+' "$f" | tail -n1 | awk '{print $3}')"
+        [ -n "$v" ] && { printf '%s\n' "$v"; return 0; }
+    done
+    for f in "$STEAM_DIR/package/steam_client_steamrt64.manifest" \
              "$STEAM_DIR/package/steam_client_ubuntu12.manifest"; do
         [ -f "$f" ] || continue
         v="$(awk -F'"' '/"version"/ {print $4; exit}' "$f")"

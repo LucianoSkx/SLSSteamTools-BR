@@ -23,6 +23,13 @@ grep -q 'versao do cliente compativel' "$tmp/out" || { cat "$tmp/out"; exit 1; }
 run pin
 [ "$(grep -c . "$steam/steam.cfg")" = "2" ] || { cat "$tmp/out"; echo "pin duplicou chaves"; exit 1; }
 
+mkdir -p "$home/.local/share/Steam/logs"
+printf '[x] Downloaded new manifest: /steam_client_steamrt64 version 9999999999, installed version 1794424036, existing pending version 0\n' \
+    >"$home/.local/share/Steam/logs/bootstrap_log.txt"
+printf '\t"version"\t\t"9999999999"\n' >"$steam/package/steam_client_ubuntu12.manifest"
+run status
+grep -q 'cliente Steam: 1794424036' "$tmp/out" || { cat "$tmp/out"; echo "nao leu a versao instalada no bootstrap"; exit 1; }
+
 printf 'BootStrapperInhibitAll=disable\nOutraChave=1\n' >"$steam/steam.cfg"
 run pin
 grep -qx 'BootStrapperInhibitAll=enable' "$steam/steam.cfg" || { cat "$tmp/out"; exit 1; }
