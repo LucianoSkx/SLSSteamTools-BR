@@ -61,6 +61,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          ver=$(sed -n 's:.*<ReleaseVersion>\([^<]*\)</ReleaseVersion>.*:\1:p' Version.props)
+          notes="Versão ${ver} — build automático de ${GITHUB_SHA:0:7} (hook + CLI 32-bit)."
           gh release view latest >/dev/null 2>&1 || \
-            gh release create latest --title latest --notes "Build automático de $GITHUB_SHA"
+            gh release create latest --title "CloudRedirect ${ver}" --notes "$notes"
+          gh release edit latest --title "CloudRedirect ${ver}" --notes "$notes"
           gh release upload latest build-ci/cloud_redirect.so build-ci/cloud_redirect_cli --clobber
