@@ -198,7 +198,7 @@ Dados em `~/.local/share/ACCELA/`.
 
 - [ciscosweater](https://github.com/ciscosweater) — psyche original
 - [niwia](https://github.com/niwia) — ASSella (extra)
-- [Selectively11](https://github.com/Selectively11) — CloudRedirect original
+- Selectively11 — CloudRedirect original (repositório fora do ar; [cópia no Internet Archive](https://web.archive.org/web/20261013143858/https://github.com/Selectively11/CloudRedirect))
 - [AceSLS](https://github.com/AceSLS/SLSsteam) — SLSsteam
 - [Deadboy666](https://github.com/Deadboy666/h3adcr-b) — h3adcr-b (instala e mantém Steam e SLSsteam; dependência do instalador)
 
