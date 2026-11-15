@@ -10,7 +10,7 @@ FROM ubuntu:22.04
 RUN dpkg --add-architecture i386 \
  && apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates git \
+      ca-certificates curl git \
       cmake make \
       g++-12 gcc-12 g++-12-multilib gcc-12-multilib \
       libc6-dev-i386 linux-libc-dev linux-libc-dev:i386 \
