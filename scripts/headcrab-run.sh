@@ -104,7 +104,7 @@ atualizar_cloudredirect() {
             warn "falha ao baixar $nome; mantendo o instalado"
             continue
         fi
-        if command -v file >/dev/null 2>&1 && ! file -b "$tmp" | grep -q 'ELF 32-bit'; then
+        if [ "$(od -An -tx1 -N5 "$tmp" | tr -d ' \n')" != "7f454c4601" ]; then
             warn "$nome nao e ELF 32-bit; ignorado"
             continue
         fi
