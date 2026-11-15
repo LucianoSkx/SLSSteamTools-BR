@@ -212,6 +212,8 @@ add_test(NAME cli_folder_provider_test
                  $<TARGET_FILE:cloud_redirect_cli>)
 add_test(NAME pin_client_test
     COMMAND bash ${CMAKE_SOURCE_DIR}/test/pin_client_test.sh)
+add_test(NAME headcrab_run_test
+    COMMAND bash ${CMAKE_SOURCE_DIR}/test/headcrab_run_test.sh)
 add_executable(provider_config_tests test/provider_config_tests.cpp
     src/common/provider_token_path.cpp src/common/json.cpp)
 target_include_directories(provider_config_tests PRIVATE src/common)

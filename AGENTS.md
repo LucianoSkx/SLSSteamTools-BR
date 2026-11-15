@@ -2,11 +2,11 @@
 
 Instalador do CloudRedirect pt-BR (hook 32-bit + CLI + UI Qt6). Bash + C++/Qt6 + Lua de terceiros.
 
-Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são responsabilidade do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b): `scripts/headcrab-run.sh` baixa `headcrab.pages.dev`, neutraliza a chamada `crininstall` (o upstream instalaria o app CloudRedirect flatpak) e roda. **Nenhum script instala flatpak.** Do h3adcr-b vêm também o pin do cliente (`scripts/pin-client.sh`, só `steam.cfg`) e a entrada de menu do Headcrab Updater (`scripts/install-updater.sh`). `dgsc`, manifestos, `steam.sh` e `config.yaml` do SLSsteam não são implementados aqui.
+Escopo: este repo instala **apenas** o CloudRedirect. Steam e SLSsteam são responsabilidade do [h3adcr-b](https://github.com/Deadboy666/h3adcr-b): `scripts/headcrab-run.sh` baixa `headcrab.pages.dev`, neutraliza as chamadas `crinstall` (instalaria o app CloudRedirect flatpak e baixaria o hook/CLI dele por cima) e `SetupHeadcrab_Updater` (sobrescreveria o atalho deste repo) e roda. **Nenhum script instala flatpak.** Do h3adcr-b vêm também o pin do cliente (`scripts/pin-client.sh`, só `steam.cfg`) e a entrada de menu do Headcrab Updater (`scripts/install-updater.sh`). `dgsc`, manifestos, `steam.sh` e `config.yaml` do SLSsteam não são implementados aqui.
 
 ## Layout
 
-- `scripts/headcrab-run.sh` — único caminho para o h3adcr-b; aborta se a chamada `crininstall` sumir do script do upstream
+- `scripts/headcrab-run.sh` — único caminho para o h3adcr-b; aborta se as chamadas `crinstall`/`SetupHeadcrab_Updater` sumirem do script do upstream
 - `scripts/install.sh` — roda `headcrab-run.sh` → baixa `cloud_redirect.so`/`cloud_redirect_cli` da release `latest` → compila a UI Qt6 → instala ícones e `.desktop` → instala o Headcrab Updater
 - `scripts/install-plugins.sh`, `uninstall-plugins.sh`, `toggle-plugins.sh` — standalone, instaláveis via `curl | bash`
 - `scripts/pin-client.sh` — standalone; `pin` (padrão)/`unpin`/`status`, mexe só em `~/.steam/steam/steam.cfg`

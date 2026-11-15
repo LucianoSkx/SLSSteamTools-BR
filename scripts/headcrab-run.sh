@@ -20,9 +20,25 @@ info "baixando o instalador do h3adcr-b"
 curl -fsSL --retry 3 --connect-timeout 15 -o "$TMP/headcrab.sh" "$HEADCRAB_URL" \
     || die "falha ao baixar $HEADCRAB_URL"
 
-# O upstream instala o app CloudRedirect em flatpak; aqui o flatpak entra
-# bloqueado por um shim no PATH, então nenhum link (install, updater, pipe)
-# consegue instalar/registrar remoto.
+# O upstream instala o app CloudRedirect em flatpak e baixa o hook/CLI dele por
+# cima deste repositorio. Aqui as duas chamadas saem do script e o flatpak
+# ainda entra bloqueado por um shim no PATH, para nenhum link (install,
+# updater, pipe) conseguir instalar ou registrar remoto.
+neutralizar() {
+    local nome="$1" motivo="$2"
+    local padrao="^[[:space:]]*${nome}[[:space:]]*$"
+
+    grep -qE "$padrao" "$TMP/headcrab.sh" \
+        || die "headcrab.sh mudou: a chamada $nome nao foi encontrada; abortando ($motivo)"
+    sed -i -E "s/$padrao/:/" "$TMP/headcrab.sh"
+    if grep -qE "$padrao" "$TMP/headcrab.sh"; then
+        die "headcrab.sh ainda chamaria $nome; abortando ($motivo)"
+    fi
+}
+
+neutralizar crinstall "instalaria o CloudRedirect do upstream"
+neutralizar SetupHeadcrab_Updater "sobrescreveria o atalho do Headcrab Updater"
+bash -n "$TMP/headcrab.sh" || die "headcrab.sh ficou invalido apos a neutralizacao"
 mkdir -p "$TMP/bin"
 REAL_FLATPAK="$(command -v flatpak || true)"
 cat > "$TMP/bin/flatpak" <<SHIM
