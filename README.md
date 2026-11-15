@@ -86,6 +86,10 @@ curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/sc
 curl -fsSL https://raw.githubusercontent.com/LucianoSkx/SLSSteamTools-BR/main/scripts/install-updater.sh | bash -s -- --remove
 ```
 
+Depois de rodar o updater, o `headcrab-run.sh` recoloca a linha `INJECT_CR`
+(LD_PRELOAD do hook) no `steam.sh`: o upstream hoje só injeta o CloudRedirect
+pelo app flatpak, que este repo não usa.
+
 ### Plugins: ligar/desligar
 
 Os `.lua` são instalados pelo ASSella. Para desligar (ou religar) todos sem

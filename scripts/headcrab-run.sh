@@ -7,10 +7,13 @@
 set -euo pipefail
 
 HEADCRAB_URL="${HEADCRAB_URL:-https://headcrab.pages.dev}"
+STEAM_SH="$HOME/.local/share/Steam/steam.sh"
+HOOK_SO="$HOME/.local/share/CloudRedirect/cloud_redirect.so"
 
-c_reset='\033[0m'; c_green='\033[1;32m'; c_red='\033[1;31m'; c_cyan='\033[1;36m'
+c_reset='\033[0m'; c_green='\033[1;32m'; c_yellow='\033[1;33m'; c_red='\033[1;31m'; c_cyan='\033[1;36m'
 info() { printf "${c_cyan}[info]${c_reset} %s\n" "$*"; }
 ok()   { printf "${c_green}[ ok ]${c_reset} %s\n" "$*"; }
+warn() { printf "${c_yellow}[aviso]${c_reset} %s\n" "$*" >&2; }
 die()  { printf "${c_red}[erro]${c_reset} %s\n" "$*" >&2; exit 1; }
 
 TMP="$(mktemp -d)"
@@ -60,3 +63,32 @@ else
     PATH="$TMP/bin:$PATH" bash "$TMP/headcrab.sh" </dev/null || die "o instalador do h3adcr-b falhou"
 fi
 ok "Steam e SLSsteam atualizados pelo h3adcr-b (sem CloudRedirect do upstream)"
+
+# O upstream injeta o CloudRedirect so pelo app flatpak, que este repo nao usa.
+# Sem a linha do hook a Steam sobe sem ele, entao ela volta depois de cada update.
+garantir_hook_no_launcher() {
+    local sh="$STEAM_SH" tmp cr exp_ln
+    [ -f "$sh" ] || { warn "steam.sh nao encontrado; hook do CloudRedirect nao religado"; return 0; }
+    if grep -q 'cloud_redirect\.so' "$sh"; then
+        ok "hook do CloudRedirect ja esta na linha de lancamento"
+        return 0
+    fi
+    [ -f "$HOOK_SO" ] || { warn "$HOOK_SO ausente; rode a instalacao do CloudRedirect e depois este updater"; return 0; }
+    if ! grep -qE '^[[:space:]]*INJECT_SLS=' "$sh" || ! grep -q 'export \$INJECT_SLS' "$sh"; then
+        die "steam.sh mudou: ancora do INJECT_SLS nao encontrada; hook do CloudRedirect nao religado"
+    fi
+    cr="INJECT_CR=\"LD_PRELOAD=$HOOK_SO\""
+    exp_ln='export $INJECT_CR &> /dev/null'
+    tmp="$(mktemp "${sh}.tmp.XXXXXX")" || die "impossivel escrever em $sh"
+    awk -v cr="$cr" -v exp_ln="$exp_ln" '
+        /^[[:space:]]*INJECT_SLS=/ { print; print "    " cr; next }
+        /export \$INJECT_SLS/ { print; print "        " exp_ln; next }
+        { print }
+    ' "$sh" > "$tmp"
+    bash -n "$tmp" || { rm -f "$tmp"; die "steam.sh ficou invalido; patch nao aplicado"; }
+    chmod --reference="$sh" "$tmp" || { rm -f "$tmp"; die "falha ao preservar as permissoes de $sh"; }
+    mv -f "$tmp" "$sh" || die "falha ao gravar $sh"
+    ok "hook do CloudRedirect religado no steam.sh"
+}
+
+garantir_hook_no_launcher
